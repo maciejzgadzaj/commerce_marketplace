@@ -1,0 +1,11 @@
+name = Store Reference
+description = Defines a store reference field and default display formatters.
+package = Commerce (contrib)
+dependencies[] = commerce_store
+dependencies[] = entity
+dependencies[] = options
+core = 7.x
+
+; Views handlers
+files[] = includes/views/handlers/commerce_store_reference_handler_filter_node_type.inc
+files[] = includes/views/handlers/commerce_store_reference_handler_filter_store_line_item_type.inc

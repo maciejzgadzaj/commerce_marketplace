@@ -1,0 +1,65 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function commerce_store_ui_install() {
+  // Create the basic store type.
+  $store_type = commerce_store_ui_store_type_new();
+
+  $store_type['type'] = 'store';
+  $store_type['name'] = t('Store');
+  $store_type['description'] = t('A basic store type.');
+  $store_type['is_new'] = TRUE;
+
+  commerce_store_ui_store_type_save($store_type, FALSE);
+}
+
+/**
+ * Implements hook_schema().
+ */
+function commerce_store_ui_schema() {
+  $schema = array();
+
+  $schema['commerce_store_type'] = array(
+    'description' => 'Stores information about {commerce_store} types created via Store UI.',
+    'fields' => array(
+      'type' => array(
+        'description' => 'The machine-readable name of this type.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'name' => array(
+        'description' => 'The human-readable name of this type.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'description' => array(
+        'description' => 'A brief description of this type.',
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'medium',
+      ),
+      'help' => array(
+        'description' => 'Help information shown to the user when creating a {commerce_store} of this type.',
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'medium',
+      ),
+      'revision' => array(
+        'description' => 'Determine whether to create a new revision when a store of this type is updated.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 1,
+      ),
+    ),
+    'primary key' => array('type'),
+  );
+
+  return $schema;
+}

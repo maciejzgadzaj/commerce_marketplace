@@ -1,0 +1,542 @@
+<?php
+
+/**
+ * @file
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function commerce_store_ui_menu() {
+  $items = array();
+
+  // Note: admin/commerce/stores is defined by a default View.
+
+  $items['admin/commerce/stores/add'] = array(
+    'title' => 'Add a store',
+    'description' => 'Add a new store for sale.',
+    'page callback' => 'commerce_store_ui_add_page',
+    'access callback' => 'commerce_store_ui_store_add_any_access',
+    'weight' => 10,
+    'file' => 'includes/commerce_store_ui.stores.inc',
+  );
+
+  foreach (commerce_store_types() as $type => $store_type) {
+    $type_arg = commerce_store_type_to_arg($type);
+    $items['admin/commerce/stores/add/' . $type_arg] = array(
+      'title' => 'Create !name',
+      'title arguments' => array('!name' => $store_type['name']),
+      'description' => $store_type['description'],
+      'page callback' => 'commerce_store_ui_store_form_wrapper',
+      'page arguments' => array(commerce_store_new($type)),
+      'access callback' => 'commerce_store_access',
+      'access arguments' => array('create', commerce_store_new($type)),
+      'file' => 'includes/commerce_store_ui.stores.inc',
+    );
+  }
+
+  $items['admin/commerce/stores/%commerce_store'] = array(
+    'title callback' => 'commerce_store_ui_store_title',
+    'title arguments' => array(3),
+    'page callback' => 'commerce_store_ui_store_form_wrapper',
+    'page arguments' => array(3),
+    'access callback' => 'commerce_store_access',
+    'access arguments' => array('update', 3),
+    'weight' => 0,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    'file' => 'includes/commerce_store_ui.stores.inc',
+  );
+  $items['admin/commerce/stores/%commerce_store/edit'] = array(
+    'title' => 'Edit',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+  );
+  $items['admin/commerce/stores/%commerce_store/delete'] = array(
+    'title' => 'Delete',
+    'page callback' => 'commerce_store_ui_store_delete_form_wrapper',
+    'page arguments' => array(3),
+    'access callback' => 'commerce_store_access',
+    'access arguments' => array('update', 3),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 20,
+    'context' => MENU_CONTEXT_INLINE,
+    'file' => 'includes/commerce_store_ui.stores.inc',
+  );
+
+  $items['admin/commerce/stores/types'] = array(
+    'title' => 'Store types',
+    'description' => 'Manage stores types for your store.',
+    'page callback' => 'commerce_store_ui_types_overview',
+    'access arguments' => array('administer store types'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 0,
+    'file' => 'includes/commerce_store_ui.types.inc',
+  );
+  $items['admin/commerce/stores/types/add'] = array(
+    'title' => 'Add store type',
+    'page callback' => 'commerce_store_ui_store_type_form_wrapper',
+    'page arguments' => array(commerce_store_ui_store_type_new()),
+    'access arguments' => array('administer store types'),
+    'type' => MENU_LOCAL_ACTION,
+    'file' => 'includes/commerce_store_ui.types.inc',
+  );
+  foreach (commerce_store_types() as $type => $store_type) {
+    $type_arg = commerce_store_type_to_arg($type);
+
+    $items['admin/commerce/stores/types/' . $type_arg] = array(
+      'title' => $store_type['name'],
+      'page callback' => 'commerce_store_ui_store_type_form_wrapper',
+      'page arguments' => array($type),
+      'access arguments' => array('administer store types'),
+      'file' => 'includes/commerce_store_ui.types.inc',
+    );
+
+    if ($store_type['module'] == 'commerce_store_ui') {
+      $items['admin/commerce/stores/types/' . $type_arg . '/edit'] = array(
+        'title' => 'Edit',
+        'access callback' => 'commerce_store_ui_store_type_update_access',
+        'access arguments' => array($type),
+        'type' => MENU_DEFAULT_LOCAL_TASK,
+        'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+      );
+      $items['admin/commerce/stores/types/' . $type_arg . '/delete'] = array(
+        'title' => 'Delete',
+        'page callback' => 'commerce_store_ui_store_type_delete_form_wrapper',
+        'page arguments' => array($type),
+        'access callback' => 'commerce_store_ui_store_type_update_access',
+        'access arguments' => array($type),
+        'type' => MENU_LOCAL_TASK,
+        'context' => MENU_CONTEXT_INLINE,
+        'weight' => 10,
+        'file' => 'includes/commerce_store_ui.types.inc',
+      );
+    }
+  }
+
+  $items['stores/%commerce_store'] = array(
+    'title callback' => 'commerce_store_ui_store_title',
+    'title arguments' => array(1),
+    'page callback' => 'commerce_store_ui_store_view',
+    'page arguments' => array(1),
+    'access callback' => 'commerce_store_access',
+    'access arguments' => array('view', 1),
+  );
+
+  return $items;
+}
+
+/**
+ * Menu item title callback: returns the SKU of a store for its pages.
+ *
+ * @param $store
+ *   The store object as loaded via the URL wildcard.
+ * @return
+ *   A page title of the format "Store: [SKU]".
+ */
+function commerce_store_ui_store_title($store) {
+  return $store->title;
+}
+
+/**
+ * Access callback: determines if the user can create any type of store.
+ */
+function commerce_store_ui_store_add_any_access() {
+  // Grant automatic access to users with administer stores permission.
+  if (user_access('administer commerce_store entities')) {
+    return TRUE;
+  }
+
+  // Check the user's access on a store type basis.
+  foreach (commerce_store_types() as $type => $store_type) {
+    if (commerce_store_access('create', commerce_store_new($type))) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Access callback: determines if the user can edit or delete a store type.
+ *
+ * @param $type
+ *   The machine-name of the store type to be edited or deleted.
+ */
+function commerce_store_ui_store_type_update_access($type) {
+  $store_type = commerce_store_type_load($type);
+
+  if ($store_type['module'] == 'commerce_store_ui') {
+    return user_access('administer store types');
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function commerce_store_ui_menu_alter(&$items) {
+  // Transform the field UI tabs into contextual links.
+  foreach (commerce_store_types() as $type => $store_type) {
+    $type_arg = commerce_store_type_to_arg($type);
+    $items['admin/commerce/stores/types/' . $type_arg . '/fields']['context'] = MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE;
+    $items['admin/commerce/stores/types/' . $type_arg . '/display']['context'] = MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE;
+  }
+}
+
+/**
+ * Implements hook_menu_local_tasks_alter().
+ */
+function commerce_store_ui_menu_local_tasks_alter(&$data, $router_item, $root_path) {
+  // Add action link 'admin/commerce/stores/add' on 'admin/commerce/stores'.
+  if ($root_path == 'admin/commerce/stores') {
+    $item = menu_get_item('admin/commerce/stores/add');
+    if ($item['access']) {
+      $data['actions']['output'][] = array(
+        '#theme' => 'menu_local_action',
+        '#link' => $item,
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_admin_menu_map().
+ */
+function commerce_store_ui_admin_menu_map() {
+  // Add awareness to the administration menu of the various store types so
+  // they are included in the dropdown menu.
+  $type_args = array();
+
+  foreach (array_keys(commerce_store_types()) as $type) {
+    $type_args[] = commerce_store_type_to_arg($type);
+  }
+
+  $map['admin/commerce/stores/types/%'] = array(
+    'parent' => 'admin/commerce/stores/types',
+    'arguments' => array(
+      array('%' => $type_args),
+    ),
+  );
+
+  return $map;
+}
+
+/**
+ * Implements hook_help().
+ */
+function commerce_store_ui_help($path, $arg) {
+  switch ($path) {
+    case 'admin/commerce/stores/types/add':
+      return '<p>' . t('Individual store types can have different fields assigned to them.') . '</p>';
+  }
+
+  // Return the user defined help text per store type when adding or editing stores.
+  if ($arg[1] == 'commerce' && $arg[2] == 'stores' && $arg[3] == 'add' && $arg[4]) {
+    $store_type = commerce_store_type_load($arg[4]);
+    return (!empty($store_type['help']) ? '<p>' . filter_xss_admin($store_type['help']) . '</p>' : '');
+  }
+  elseif ($arg[1] == 'commerce' && $arg[2] == 'stores' && is_numeric($arg[3])) {
+    $store = commerce_store_load($arg[3]);
+    $store_type = commerce_store_type_load($store->type);
+    return (!empty($store_type['help']) ? '<p>' . filter_xss_admin($store_type['help']) . '</p>' : '');
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function commerce_store_ui_theme() {
+  return array(
+    'store_add_list' => array(
+      'variables' => array('content' => array()),
+      'file' => 'includes/commerce_store_ui.stores.inc',
+    ),
+    'store_type_admin_overview' => array(
+      'variables' => array('type' => NULL),
+      'file' => 'includes/commerce_store_ui.types.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function commerce_store_ui_entity_info_alter(&$entity_info) {
+  // Add a URI callback to the store entity.
+  $entity_info['commerce_store']['uri callback'] = 'commerce_store_ui_store_uri';
+
+  // Add callbacks and urls for administer translations.
+  $entity_info['commerce_store']['translation']['entity_translation'] += array(
+    'base path' => 'admin/commerce/stores/%commerce_store',
+  );
+
+  // Expose the admin UI for store fields.
+  foreach ($entity_info['commerce_store']['bundles'] as $type => &$bundle) {
+    $type_arg = commerce_store_type_to_arg($type);
+    $bundle['admin'] = array(
+      'path' => 'admin/commerce/stores/types/' . $type_arg,
+      'access arguments' => array('administer store types'),
+    );
+  }
+}
+
+/**
+ * Entity uri callback: points to the edit form of the given store if no other
+ *   URI is specified.
+ */
+function commerce_store_ui_store_uri($store) {
+  // First look for a return value in the default entity uri callback.
+  $uri = commerce_store_uri($store);
+
+  // If a value was found, return it now.
+  if (!empty($uri)) {
+    return $uri;
+  }
+
+  // Otherwise return an admin URI if the user has permission.
+  if (commerce_store_access('update', $store)) {
+    return array(
+      'path' => 'admin/commerce/stores/' . $store->store_id,
+    );
+  }
+
+  return NULL;
+}
+
+/**
+ * Implements hook_commerce_store_type_info().
+ */
+function commerce_store_ui_commerce_store_type_info() {
+  return db_query('SELECT * FROM {commerce_store_type}')->fetchAllAssoc('type', PDO::FETCH_ASSOC);
+}
+
+/**
+ * Returns an initialized store type array.
+ */
+function commerce_store_ui_store_type_new() {
+  return array(
+    'type' => '',
+    'name' => '',
+    'description' => '',
+    'help' => '',
+    'revision' => 1,
+  );
+}
+
+/**
+ * Saves a store type.
+ *
+ * This function will either insert a new store type if $store_type['is_new']
+ * is set or attempt to update an existing store type if it is not. It does
+ * not currently support changing the machine-readable name of the store type,
+ * nor is this possible through the form supplied by the Store UI module.
+ *
+ * @param $store_type
+ *   The store type array containing the basic properties as initialized in
+ *     commerce_store_ui_store_type_new().
+ * @param $configure
+ *   Boolean indicating whether or not store type configuration should be
+ *     performed in the event of a new store type being saved.
+ * @param $skip_reset
+ *   Boolean indicating whether or not this save should result in store types
+ *     being reset and the menu being rebuilt; defaults to FALSE. This is useful
+ *     when you intend to perform many saves at once, as menu rebuilding is very
+ *     costly in terms of performance.
+ *
+ * @return
+ *   The return value of the call to drupal_write_record() to save the store
+ *     type, either FALSE on failure or SAVED_NEW or SAVED_UPDATED indicating
+ *     the type of query performed to save the store type.
+ */
+function commerce_store_ui_store_type_save($store_type, $configure = TRUE, $skip_reset = FALSE) {
+  $op = drupal_write_record('commerce_store_type', $store_type, empty($store_type['is_new']) ? 'type' : array());
+
+  // If this is a new store type and the insert did not fail...
+  if (!empty($store_type['is_new']) && $op !== FALSE) {
+    // Notify the field API that a new bundle has been created.
+    field_attach_create_bundle('commerce_store', $store_type['type']);
+
+    // Notify other modules that a new store type has been created.
+    module_invoke_all('commerce_store_type_insert', $store_type, $skip_reset);
+  }
+  elseif ($op !== FALSE) {
+    // Notify other modules that an existing store type has been updated.
+    module_invoke_all('commerce_store_type_update', $store_type, $skip_reset);
+  }
+
+  // Rebuild the menu to add this store type's menu items.
+  if (!$skip_reset) {
+    commerce_store_types_reset();
+    variable_set('menu_rebuild_needed', TRUE);
+  }
+
+  return $op;
+}
+
+/**
+ * Deletes a store type.
+ *
+ * @param $type
+ *   The machine-readable name of the store type.
+ * @param $skip_reset
+ *   Boolean indicating whether or not this delete should result in store
+ *     types being reset and the menu being rebuilt; defaults to FALSE. This is
+ *     useful when you intend to perform many saves at once, as menu rebuilding
+ *     is very costly in terms of performance.
+ */
+function commerce_store_ui_store_type_delete($type, $skip_reset = FALSE) {
+  $store_type = commerce_store_type_load($type);
+
+  db_delete('commerce_store_type')
+    ->condition('type', $type)
+    ->execute();
+
+  // Rebuild the menu to get rid of this store type's menu items.
+  if (!$skip_reset) {
+    commerce_store_types_reset();
+    variable_set('menu_rebuild_needed', TRUE);
+  }
+
+  // Notify the field API that this bundle has been destroyed.
+  field_attach_delete_bundle('commerce_store', $type);
+
+  // Notify other modules that this store type has been deleted.
+  module_invoke_all('commerce_store_type_delete', $store_type, $skip_reset);
+}
+
+/**
+ * Checks to see if a given store type already exists.
+ *
+ * @param $type
+ *   The string to match against existing types.
+ *
+ * @return
+ *   TRUE or FALSE indicating whether or not the store type exists.
+ */
+function commerce_store_ui_validate_store_type_unique($type) {
+  // Look for a match of the type.
+  if ($match_id = db_query('SELECT type FROM {commerce_store_type} WHERE type = :type', array(':type' => $type))->fetchField()) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Implements hook_forms().
+ */
+function commerce_store_ui_forms($form_id, $args) {
+  $forms = array();
+
+  // Define a wrapper ID for the store add / edit form.
+  $forms['commerce_store_ui_store_form'] = array(
+    'callback' => 'commerce_store_store_form',
+  );
+
+  // Define a wrapper ID for the store delete confirmation form.
+  $forms['commerce_store_ui_store_delete_form'] = array(
+    'callback' => 'commerce_store_store_delete_form',
+  );
+
+  return $forms;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * The Store UI module instantiates the Store add/edit form at particular
+ * paths in the Commerce IA. It uses its own form ID to do so and alters the
+ * form here to add in appropriate redirection and an additional button.
+ *
+ * @see commerce_store_ui_store_form()
+ */
+function commerce_store_ui_form_commerce_store_ui_store_form_alter(&$form, &$form_state) {
+  $store = $form_state['commerce_store'];
+
+  // Add a submit handler to the save button to add a redirect.
+  $form['actions']['submit']['#submit'][] = 'commerce_store_ui_store_form_submit';
+
+
+  // Add the save and continue button for new stores.
+  if (empty($store->store_id)) {
+    $form['actions']['save_continue'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save and add another'),
+      '#submit' => $form['actions']['submit']['#submit'],
+      '#suffix' => l(t('Cancel'), 'admin/commerce/stores'),
+      '#weight' => 45,
+    );
+  }
+  else {
+    $form['actions']['submit']['#suffix'] = l(t('Cancel'), 'admin/commerce/stores');
+  }
+}
+
+/**
+ * Submit callback for commerce_store_ui_store_form().
+ *
+ * @see commerce_store_ui_form_commerce_store_ui_store_form_alter()
+ */
+function commerce_store_ui_store_form_submit($form, &$form_state) {
+  // Set the redirect based on the button clicked.
+  $array_parents = $form_state['triggering_element']['#array_parents'];
+  $submit_element = array_pop($array_parents);
+
+  if ($submit_element == 'save_continue') {
+    $form_state['redirect'] = 'admin/commerce/stores/add/' . commerce_store_type_to_arg($form_state['commerce_store']->type);
+  }
+  elseif (arg(2) == 'stores' && arg(3) == 'add') {
+    $form_state['redirect'] = 'admin/commerce/stores';
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * The Store UI module instantiates the Store delete form at a particular
+ * path in the Commerce IA. It uses its own form ID to do so and alters the
+ * form here to add in appropriate redirection.
+ *
+ * @see commerce_store_ui_store_delete_form()
+ */
+function commerce_store_ui_form_commerce_store_ui_store_delete_form_alter(&$form, &$form_state) {
+  $form['actions']['cancel']['#href'] = 'admin/commerce/stores';
+  $form['#submit'][] = 'commerce_store_ui_store_delete_form_submit';
+}
+
+/**
+ * Submit callback for commerce_store_ui_store_delete_form().
+ *
+ * @see commerce_store_ui_form_commerce_store_ui_store_delete_form_alter()
+ */
+function commerce_store_ui_store_delete_form_submit($form, &$form_state) {
+  $form_state['redirect'] = 'admin/commerce/stores';
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function commerce_store_ui_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'commerce_store_ui') . '/includes/views',
+  );
+}
+
+/**
+ * Generate an array for rendering the given store.
+ *
+ * @param $store
+ *   A fully loaded store object.
+ * @param $view_mode
+ *   The view mode for displaying the store, 'administrator' or 'customer'.
+ *
+ * @return
+ *   An array as expected by drupal_render().
+ */
+function commerce_store_ui_store_view($store, $view_mode = 'administrator') {
+  drupal_add_css(drupal_get_path('module', 'commerce_store') . '/theme/commerce_store.theme.css');
+  return entity_view('commerce_store', array($store->store_id => $store), $view_mode, NULL, TRUE);
+}

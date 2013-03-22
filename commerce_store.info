@@ -1,1 +1,11 @@
-name = Commerce Store
+name = Store
+description = Defines the Store entity and associated features.
+core = 7.x
+package = Commerce (contrib)
+dependencies[] = commerce
+
+; Module includes
+files[] = includes/commerce_store.controller.inc
+
+; Translation handler
+files[] = includes/commerce_store.translation_handler.inc

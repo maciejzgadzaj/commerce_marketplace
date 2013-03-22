@@ -1,0 +1,11 @@
+
+/**
+ * @file
+ * Basic styling for the Commerce Store module.
+ */
+
+.commerce-store-title-label,
+.commerce-store-status-label {
+  display: inline;
+  font-weight: bold;
+}

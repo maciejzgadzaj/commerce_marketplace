@@ -1,0 +1,903 @@
+<?php
+
+/**
+ * @file
+ * Defines a field type for referencing stores from other entities.
+ *
+ */
+
+/**
+ * Implements hook_commerce_store_uri().
+ */
+function commerce_store_reference_commerce_store_uri($store) {
+  // If the store has a display context, use its URI.
+  if (!empty($store->display_context)) {
+    // If the display context does not have the fully loaded entity, as on the
+    // Add to Cart form refresh, load it now using the entity ID if present.
+    if (empty($store->display_context['entity']) && !empty($store->display_context['entity_id'])) {
+      $store->display_context['entity'] = entity_load_single($store->display_context['entity_type'], $store->display_context['entity_id']);
+    }
+    else {
+      // Otherwise do not return a URI from this function.
+      return NULL;
+    }
+
+    return entity_uri($store->display_context['entity_type'], $store->display_context['entity']);
+  }
+}
+
+/**
+ * Implements hook_enable().
+ */
+function commerce_store_reference_enable() {
+  commerce_store_reference_configure_referencing_entity_types();
+}
+
+/**
+ * Implements hook_modules_enabled().
+ */
+function commerce_store_reference_modules_enabled($modules) {
+  commerce_store_reference_configure_referencing_entity_types();
+}
+
+/**
+ * Configures selected entity types to reference a commerce store.
+ */
+function commerce_store_reference_configure_referencing_entity_types() {
+  foreach (commerce_store_reference_referencing_entity_types() as $entity_type => $bundles) {
+    commerce_store_reference_configure_referencing_entity_type($entity_type, $bundles);
+  }
+}
+
+/**
+ * Returns an array of entity types and their bundles
+ * which should be referencing commerce store.
+ */
+function commerce_store_reference_referencing_entity_types() {
+  $entity_types = array();
+
+  // Add Store field to all commerce_product bundles.
+  if (module_exists('commerce_product')) {
+    $entity_types['commerce_product'] = array_keys(commerce_product_types());
+  }
+
+  // Add store field to product bundle of commerce_line_item.
+  if (module_exists('commerce_line_item')) {
+    $entity = entity_get_info('commerce_line_item');
+    if (!empty($entity['bundles']['product'])) {
+      $entity_types['commerce_line_item'] = array('product');
+    }
+  }
+
+  // Add store field to all product display content types.
+//  if (module_exists('node')) {
+//    $entity_types['node'] = array_keys(commerce_product_reference_node_types());
+//  }
+
+  // Allow the entity types to be altered by other modules.
+  drupal_alter('commerce_store_reference_referencing_entity_types', $entity_types);
+
+  return $entity_types;
+}
+
+/**
+ * Ensures the store reference field is present
+ * on selected bundles of the specified entity types.
+ */
+function commerce_store_reference_configure_referencing_entity_type($entity_type, $bundles) {
+  foreach ($bundles as $bundle) {
+    commerce_store_reference_create_instance('commerce_store', $entity_type, $bundle, t('Store'));
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function commerce_store_reference_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
+  // Alter the form if the user has selected to not display a widget for a
+  // store reference field.
+  if ($form['#instance']['widget']['type'] == 'commerce_store_reference_hidden') {
+    // Add a help message to the top of the page.
+    $form['hidden_store_reference_help'] = array(
+      '#markup' => '<div class="messages status">' . t('This field has been configured to not display a widget. There is no way to enter values for this field via the user interface, so you must have some alternate way of adding data to these fields. The settings for the field will still govern what type of stores can be referenced and whether or not their fields will be rendered into the referencing entity on display.') . '</div>',
+      '#weight' => -20,
+    );
+
+    // Hide options from the form that pertain to UI based data entry.
+    $form['instance']['description']['#access'] = FALSE;
+    $form['instance']['required']['#access'] = FALSE;
+    $form['instance']['default_value_widget']['#access'] = FALSE;
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * When a store is being deleted. Display a message on the confirmation form
+ * saying how many times the store is referenced in all store reference
+ * fields.
+ */
+function commerce_store_reference_form_commerce_store_store_delete_form_alter(&$form, &$form_state) {
+  $items = array();
+
+  // Check the data in every store reference field.
+  foreach (commerce_info_fields('commerce_store_reference') as $field_name => $field) {
+    // Query for any entity referencing the deleted store in this field.
+    $query = new EntityFieldQuery();
+    $query->fieldCondition($field_name, 'store_id', $form_state['store']->store_id, '=');
+    $result = $query->execute();
+
+    // If results were returned...
+    if (!empty($result)) {
+      // Loop over results for each type of entity returned.
+      foreach ($result as $entity_type => $data) {
+        if (($count = count($data)) > 0) {
+          // For line item references, display a message about the inability of
+          // the store to be deleted and disable the submit button.
+          if ($entity_type == 'commerce_line_item') {
+            // Load the referencing line item.
+            $line_item = reset($data);
+            $line_item = commerce_line_item_load($line_item->line_item_id);
+
+            // Implement a soft dependency on the Order module to show a little
+            // more information in the non-deletion message.
+            if (!empty($line_item->order_id) && $order = commerce_order_load($line_item->order_id)) {
+              $description = t('This store is referenced by a line item on Order @order_number and therefore cannot be deleted. Disable it instead.', array('@order_number' => $order->order_number));
+            }
+            else {
+              $description = t('This store is referenced by a line item and therefore cannot be deleted. Disable it instead.');
+            }
+
+            $form['description']['#markup'] .= '<p>' . $description . '</p>';
+            $form['actions']['submit']['#disabled'] = TRUE;
+            return;
+          }
+
+          // Load the entity information.
+          $entity_info = entity_get_info($entity_type);
+
+          // Add a message regarding the references.
+          $items[] = t('@entity_label: @count', array('@entity_label' => $entity_info['label'], '@count' => $count));
+        }
+      }
+    }
+  }
+
+  if (!empty($items)) {
+    $form['description']['#markup'] .= '<p>' . t('This store is referenced by the following entities: !entity_list', array('!entity_list' => theme('item_list', array('items' => $items)))) . '</p>';
+  }
+}
+
+/**
+ * Implements hook_commerce_store_delete().
+ *
+ * Remove references to this store in all store reference field contents.
+ */
+function commerce_store_reference_commerce_store_delete($store) {
+  // Check the data in every store reference field.
+  foreach (commerce_info_fields('commerce_store_reference') as $field_name => $field) {
+    // Query for any entity referencing the deleted store in this field.
+    $query = new EntityFieldQuery();
+    $query->fieldCondition($field_name, 'store_id', $store->store_id, '=');
+    $result = $query->execute();
+
+    // If results were returned...
+    if (!empty($result)) {
+      // Loop over results for each type of entity returned.
+      foreach ($result as $entity_type => $data) {
+        // Load the entities of the current type.
+        $entities = entity_load($entity_type, array_keys($data));
+
+        // Loop over each entity and remove the reference to the deleted store.
+        foreach ($entities as $entity_id => $entity) {
+          commerce_entity_reference_delete($entity, $field_name, 'store_id', $store->store_id);
+
+          // Store the changes to the entity.
+          entity_save($entity_type, $entity);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_entity_delete().
+ *
+ * Remove references to the deleted store in all store reference fields.
+ */
+function commerce_store_reference_entity_delete($entity, $type) {
+  // Only catch deleted store entities.
+  if ($type != 'commerce_store') {
+    return;
+  }
+  $store = $entity;
+
+  // Check the data in every store reference field.
+  foreach (commerce_info_fields('commerce_store_reference') as $field_name => $field) {
+    // Query for any entity referencing the deleted store in this field.
+    $query = new EntityFieldQuery();
+    $query->fieldCondition($field_name, 'store_id', $store->store_id, '=');
+    $result = $query->execute();
+
+    // If results were returned...
+    if (!empty($result)) {
+      // Loop over results for each type of entity returned.
+      foreach ($result as $entity_type => $data) {
+        // Load the entities of the current type.
+        $entities = entity_load($entity_type, array_keys($data));
+
+        // Loop over each entity and remove the reference to the deleted store.
+        foreach ($entities as $entity_id => $entity) {
+          $entity = commerce_entity_reference_delete($entity_type, $entity, $field_name, $store->store_id);
+
+          // Store the changes to the entity.
+          entity_save($entity_type, $entity);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function commerce_store_reference_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'commerce_store_reference') . '/includes/views',
+  );
+}
+
+/**
+ * Implements hook_field_info().
+ */
+function commerce_store_reference_field_info() {
+  return array(
+    'commerce_store_reference' => array(
+      'label' => t('Store reference'),
+      'description' => t('This field stores the ID of a related store as an integer value.'),
+      'settings' => array(),
+      'instance_settings' => array('referenceable_types' => array(), 'field_injection' => TRUE),
+      'default_widget' => 'options_select',
+      'default_formatter' => 'hidden',
+      'property_type' => 'commerce_store',
+      'property_callbacks' => array('commerce_store_reference_property_info_callback'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_instance_settings_form().
+ */
+function commerce_store_reference_field_instance_settings_form($field, $instance) {
+  $settings = $instance['settings'];
+  $form = array();
+
+  $form['field_injection'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Render fields from the referenced stores when viewing this entity.'),
+    '#description' => t('If enabled, the appearance of store fields on this entity is governed by the display settings for the fields on the store type.'),
+    '#default_value' => isset($settings['field_injection']) ? $settings['field_injection'] : TRUE,
+    '#weight' => -9,
+  );
+
+  // Build an options array of the store types.
+  $options = array();
+
+  foreach (commerce_store_type_get_name() as $type => $name) {
+    $options[$type] = check_plain($name);
+  }
+
+  $form['referenceable_types'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Store types that can be referenced'),
+    '#description' => t('If no types are selected, any type of store may be referenced.'),
+    '#options' => $options,
+    '#default_value' => is_array($settings['referenceable_types']) ? $settings['referenceable_types'] : array(),
+    '#multiple' => TRUE,
+    '#weight' => -3,
+  );
+
+  return $form;
+}
+
+/**
+ * Implements hook_field_validate().
+ *
+ * Possible error codes:
+ * - 'invalid_store_id': store_id is not valid for the field (not a valid
+ *                       store id, or the store is not referenceable).
+ */
+function commerce_store_reference_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+  // Extract store_ids to check.
+  $store_ids = array();
+
+  // First check non-numeric store_id's to avoid losing time with them.
+  foreach ($items as $delta => $item) {
+    if (is_array($item) && !empty($item['store_id'])) {
+      if (is_numeric($item['store_id'])) {
+        $store_ids[] = $item['store_id'];
+      }
+      else {
+        $errors[$field['field_name']][$langcode][$delta][] = array(
+          'error' => 'invalid_store_id',
+          'message' => t('%name: you have specified an invalid store for this reference field.', array('%name' => $instance['label'])),
+        );
+      }
+    }
+  }
+
+  // Prevent performance hog if there are no ids to check.
+  if ($store_ids) {
+    $refs = commerce_store_match_stores($field, $instance, '', NULL, $store_ids);
+
+    foreach ($items as $delta => $item) {
+      if (is_array($item)) {
+        if (!empty($item['store_id']) && !isset($refs[$item['store_id']])) {
+          $errors[$field['field_name']][$langcode][$delta][] = array(
+            'error' => 'invalid_store_id',
+            'message' => t('%name: you have specified an invalid store for this reference field.', array('%name' => $instance['label'])),
+          );
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function commerce_store_reference_field_is_empty($item, $field) {
+  return empty($item['store_id']);
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function commerce_store_reference_field_formatter_info() {
+  return array(
+    'commerce_store_reference_title_link' => array(
+      'label' => t('Title (link)'),
+      'description' => t('Display the title of the referenced store as a link to the node page.'),
+      'field types' => array('commerce_store_reference'),
+    ),
+    'commerce_store_reference_title_plain' => array(
+      'label' => t('Title (no link)'),
+      'description' => t('Display the title of the referenced store as plain text.'),
+      'field types' => array('commerce_store_reference'),
+    ),
+    'commerce_store_reference_rendered_store' => array(
+      'label' => t('Rendered store'),
+      'description' => t('Display the rendered stores in any available view mode.'),
+      'field types' => array('commerce_store_reference'),
+      'settings' => array(
+        'view_mode' => 'full',
+        'page' => TRUE,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_settings_form().
+ */
+function commerce_store_reference_field_formatter_settings_form($field, $instance, $view_mode, $form, &$form_state) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+  $element = array();
+
+  if ($display['type'] == 'commerce_store_reference_rendered_store') {
+    $entity_info = entity_get_info('commerce_store');
+    $options = array();
+
+    if (!empty($entity_info['view modes'])) {
+      foreach ($entity_info['view modes'] as $view_mode => $view_mode_settings) {
+        $options[$view_mode] = $view_mode_settings['label'];
+      }
+    }
+
+    if (count($options) > 1) {
+      $element['view_mode'] = array(
+        '#type' => 'select',
+        '#title' => t('View mode'),
+        '#options' => $options,
+        '#default_value' => $settings['view_mode'],
+      );
+    }
+
+    $element['page'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Render the store in full page mode without the title in a heading tag.'),
+      '#default_value' => $settings['page'],
+    );
+  }
+
+  return $element;
+}
+
+/**
+ * Implements hook_field_formatter_settings_summary().
+ */
+function commerce_store_reference_field_formatter_settings_summary($field, $instance, $view_mode) {
+  $display = $instance['display'][$view_mode];
+  $settings = $display['settings'];
+
+  $summary = array();
+
+  if ($display['type'] == 'commerce_store_reference_rendered_store') {
+    $entity_info = entity_get_info('commerce_store');
+    $summary[] = t('View mode: @mode', array('@mode' => isset($entity_info['view modes'][$settings['view_mode']]['label']) ? $entity_info['view modes'][$settings['view_mode']]['label'] : $settings['view_mode']));
+
+    if (!empty($settings['page'])) {
+      $summary[] = t('Rendering without the title in a heading tag.');
+    }
+    else {
+      $summary[] = t('Rendering with the title in a heading tag.');
+    }
+  }
+
+  return implode('<br />', $summary);
+}
+
+/**
+ * Implements hook_field_formatter_prepare_view().
+ */
+function commerce_store_reference_field_formatter_prepare_view($entity_type, $entities, $field, $instances, $langcode, &$items, $displays) {
+  $display = reset($displays);
+
+  if ($display['type'] == 'commerce_store_reference_rendered_store') {
+    $store_ids = array();
+
+    // Collect every possible entity attached to any of the entities.
+    foreach ($entities as $id => $entity) {
+      foreach ($items[$id] as $delta => $item) {
+        if (isset($item['store_id'])) {
+          $store_ids[] = $item['store_id'];
+        }
+      }
+    }
+
+    if ($store_ids) {
+      $stores = entity_load('commerce_store', $store_ids);
+    }
+    else {
+      $stores = array();
+    }
+
+    // Iterate through the entities again to attach the loaded data.
+    foreach ($entities as $id => $entity) {
+      $rekey = FALSE;
+
+      foreach ($items[$id] as $delta => $item) {
+        // Check whether the referenced store could be loaded and that the
+        // user has access to it.
+        if (isset($stores[$item['store_id']]) && entity_access('view', 'commerce_store', $stores[$item['store_id']])) {
+          // Add the fully loaded entity to the items array.
+          $items[$id][$delta]['entity'] = $stores[$item['store_id']];
+        }
+        else {
+          // Otherwise, unset the item since the referenced store does not
+          // exist or is not be accessible to the user.
+          unset($items[$id][$delta]);
+          $rekey = TRUE;
+        }
+      }
+
+      if ($rekey) {
+        // Rekey the items array.
+        $items[$id] = array_values($items[$id]);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function commerce_store_reference_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $result = array();
+
+  // Collect the list of store IDs.
+  $store_ids = array();
+
+  foreach ($items as $delta => $item) {
+    $store_ids[$item['store_id']] = $item['store_id'];
+  }
+
+  // Exit now if we didn't find any store IDs.
+  if (empty($store_ids)) {
+    return;
+  }
+
+  // Load the referenced stores.
+  $stores = commerce_store_load_multiple($store_ids, array('status' => 1));
+
+  switch ($display['type']) {
+    case 'commerce_store_reference_title_link':
+    case 'commerce_store_reference_title_plain':
+      foreach ($items as $delta => $item) {
+        if (!empty($stores[$item['store_id']])) {
+          if ($display['type'] == 'commerce_store_reference_title_link') {
+            $result[$delta] = array(
+              '#type' => 'link',
+              '#title' => $stores[$item['store_id']]->title,
+              '#href' => 'stores/' . $stores[$item['store_id']]->store_id,
+            );
+          }
+          else {
+            $result[$delta] = array(
+              '#markup' => check_plain($stores[$item['store_id']]->title),
+            );
+          }
+        }
+      }
+      break;
+
+    case 'commerce_store_reference_rendered_store':
+      foreach ($items as $delta => $item) {
+        // Protect ourselves from recursive rendering.
+        static $depth = 0;
+        $depth++;
+
+        if ($depth > 20) {
+          throw new CommerceStoreReferenceRecursiveRenderingException(t('Recursive rendering detected when rendering store (@store_id). Aborting rendering.', array('@store_id' => $item['store_id'])));
+        }
+
+        $entity = clone $item['entity'];
+        unset($entity->content);
+        $result[$delta] = entity_view('commerce_store', array($item['store_id'] => $entity), $display['settings']['view_mode'], $langcode, $display['settings']['page']);
+        $depth = 0;
+      }
+      break;
+  }
+
+  return $result;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ *
+ * Defines widgets available for use with field types as specified in each
+ * widget's $info['field types'] array.
+ */
+function commerce_store_reference_field_widget_info() {
+  $widgets = array();
+
+  // Define an autocomplete textfield widget for store referencing that works
+  // like the Term Reference autocomplete widget.
+  $widgets['commerce_store_reference_autocomplete'] = array(
+    'label' => t('Autocomplete text field'),
+    'description' => t('Display the list of referenceable stores as a textfield with autocomplete behaviour.'),
+    'field types' => array('commerce_store_reference'),
+    'settings' => array(
+      'autocomplete_match' => 'contains',
+      'size' => 60,
+      'autocomplete_path' => 'commerce_store/autocomplete',
+    ),
+    'behaviors' => array(
+      'multiple values' => FIELD_BEHAVIOR_CUSTOM,
+    ),
+  );
+
+  // Do not show the widget on forms; useful in cases where reference fields
+  // have a lot of data that is maintained automatically.
+  $widgets['commerce_store_reference_hidden'] = array(
+    'label' => t('Do not show a widget'),
+    'description' => t('Will not display the store reference field on forms. Use only if you maintain store references some other way.'),
+    'field types' => array('commerce_store_reference'),
+    'behaviors' => array(
+      'multiple values' => FIELD_BEHAVIOR_CUSTOM,
+    ),
+  );
+
+  return $widgets;
+}
+
+/**
+ * Implements hook_field_widget_info_alter().
+ */
+function commerce_store_reference_field_widget_info_alter(&$info) {
+  $info['options_select']['field types'][] = 'commerce_store_reference';
+  $info['options_buttons']['field types'][] = 'commerce_store_reference';
+}
+
+/**
+ * Implements hook_field_widget_settings_form().
+ */
+function commerce_store_reference_field_widget_settings_form($field, $instance) {
+  $widget = $instance['widget'];
+  $defaults = field_info_widget_settings($widget['type']);
+  $settings = array_merge($defaults, $widget['settings']);
+
+  $form = array();
+
+  // Build the settings for the store reference autocomplete widget.
+  if ($widget['type'] == 'commerce_store_reference_autocomplete') {
+    $form['autocomplete_match'] = array(
+      '#type' => 'select',
+      '#title' => t('Autocomplete matching'),
+      '#default_value' => $settings['autocomplete_match'],
+      '#options' => array(
+        'starts_with' => t('Starts with'),
+        'contains' => t('Contains'),
+      ),
+      '#description' => t('Select the method used to collect autocomplete suggestions. Note that <em>Contains</em> can cause performance issues on sites with thousands of nodes.'),
+    );
+    $form['size'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Size of textfield'),
+      '#default_value' => $settings['size'],
+      '#element_validate' => array('_element_validate_integer_positive'),
+      '#required' => TRUE,
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Implements hook_field_widget_form().
+ *
+ * Used to define the form element for custom widgets.
+ */
+function commerce_store_reference_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  // Define the autocomplete textfield for stores.
+  if ($instance['widget']['type'] == 'commerce_store_reference_autocomplete') {
+    $store_ids = array();
+    $titles = array();
+
+    // Build an array of store IDs from this field's values.
+    foreach ($items as $item) {
+      $store_ids[] = $item['store_id'];
+    }
+
+    // Load those stores and loop through them to extract their SKUs.
+    $stores = commerce_store_load_multiple($store_ids);
+
+    foreach ($store_ids as $store_id) {
+      if (!empty($stores[$store_id])) {
+        $titles[] = $stores[$store_id]->title;
+      }
+    }
+
+    return $element + array(
+      '#type' => 'textfield',
+      '#default_value' => implode(', ', $titles),
+      '#autocomplete_path' => $instance['widget']['settings']['autocomplete_path'] . '/' . $instance['entity_type'] . '/' . $field['field_name'] . '/' . $instance['bundle'],
+      '#size' => $instance['widget']['settings']['size'],
+      '#maxlength' => 2048,
+      '#element_validate' => array('commerce_store_reference_autocomplete_validate'),
+    );
+  }
+  elseif ($instance['widget']['type'] == 'commerce_store_reference_hidden') {
+    return array();
+  }
+}
+
+/**
+ * Validation callback for a commerce_store_reference autocomplete element.
+ */
+function commerce_store_reference_autocomplete_validate($element, &$form_state, $form) {
+  // If a value was entered into the autocomplete...
+  if (!empty($element['#value'])) {
+    // Translate titles into store IDs.
+    $typed_titles = drupal_explode_tags($element['#value']);
+
+    $value = array();
+
+    // Loop through all the entered SKUs...
+    foreach ($typed_titles as $typed_title) {
+      // To see if the store actually exists...
+      if ($store = commerce_store_load_by_title(trim($typed_title))) {
+        // And store its store ID for later validation.
+        $value[] = array('store_id' => $store->store_id);
+      }
+      else {
+        form_error($element, t('Store %title does not exist.', array('%title' => $typed_title)));
+      }
+    }
+  }
+  else {
+    $value = array();
+  }
+
+  // Update the value of this element so the field can validate the store IDs.
+  form_set_value($element, $value, $form_state);
+}
+
+/**
+ * Implements hook_field_widget_error().
+ */
+function commerce_store_reference_field_widget_error($element, $error) {
+  form_error($element, $error['message']);
+}
+
+/**
+ * Implements hook_options_list().
+ */
+function commerce_store_reference_options_list($field, $instance = NULL) {
+  $options = array();
+
+  // Loop through all store matches.
+  foreach (commerce_store_match_stores($field, $instance) as $store_id => $data) {
+    // Add them to the options list in optgroups by store type.
+    $name = check_plain(commerce_store_type_get_name($data['type']));
+
+    if (!empty($instance['widget']['type']) && $instance['widget']['type'] == 'options_select') {
+      $options[$name][$store_id] = t($data['title']);
+    }
+    else {
+      $options[$name][$store_id] = t($data['title']);
+    }
+  }
+
+  // Simplify the options list if only one optgroup exists.
+  if (count($options) == 1) {
+    $options = reset($options);
+  }
+
+  return $options;
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function commerce_store_reference_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'entity_info_alter') {
+    // Place this module's implementation of hook_entity_info_alter() is at the
+    // end of the invocation list so it can react to view modes altered onto the
+    // store entity type from other modules like Display Suite.
+    $group = $implementations['commerce_store_reference'];
+    unset($implementations['commerce_store_reference']);
+    $implementations['commerce_store_reference'] = $group;
+  }
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * Adds the line item and the store display-specific view modes to the store.
+ */
+function commerce_store_reference_entity_info_alter(&$entity_info) {
+  $entity_info['commerce_store']['view modes']['line_item'] = array(
+    'label' => t('Line item'),
+    'custom settings' => TRUE,
+  );
+
+  // Query the field tables directly to avoid creating a loop in the Field API:
+  // it is not legal to call any of the field_info_*() in
+  // hook_entity_info(), as field_read_instances() calls entity_get_info().
+  $query = db_select('field_config_instance', 'fci', array('fetch' => PDO::FETCH_ASSOC));
+  $query->join('field_config', 'fc', 'fc.id = fci.field_id');
+  $query->fields('fci', array('entity_type'));
+  $query->condition('fc.type', 'commerce_store_reference');
+  $query->condition('fc.deleted', 0);
+  $query->distinct();
+
+  foreach ($query->execute() as $instance) {
+    $entity_type = $instance['entity_type'];
+
+    if (!empty($entity_info[$entity_type]['view modes'])) {
+      foreach ($entity_info[$entity_type]['view modes'] as $view_mode => $view_mode_info) {
+        $entity_info['commerce_store']['view modes'][$entity_type . '_' . $view_mode] = array(
+          'label' => t('@entity_type: @view_mode', array('@entity_type' => $entity_info[$entity_type]['label'], '@view_mode' => $view_mode_info['label'])),
+
+          // UX: Enable the 'Node: teaser' mode by default, if present.
+          'custom settings' => $entity_type == 'node' && $view_mode == 'teaser',
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Creates a required, locked instance of a store reference field on the
+ * specified bundle.
+ *
+ * @param $field_name
+ *   The name of the field; if it already exists, a new instance of the existing
+ *     field will be created. For fields governed by the Commerce modules, this
+ *     should begin with commerce_.
+ * @param $entity_type
+ *   The type of entity the field instance will be attached to.
+ * @param $bundle
+ *   The bundle name of the entity the field instance will be attached to.
+ * @param $label
+ *   The label of the field instance.
+ * @param $weight
+ *   The default weight of the field instance widget and display.
+ */
+function commerce_store_reference_create_instance($field_name, $entity_type, $bundle, $label, $weight = 0) {
+  // If a field type we know should exist isn't found, clear the Field cache.
+  if (!field_info_field_types('commerce_store_reference')) {
+    field_cache_clear();
+  }
+
+  // Look for or add the specified field to the requested entity bundle.
+  $field = field_info_field($field_name);
+  $instance = field_info_instance($entity_type, $field_name, $bundle);
+
+  if (empty($field)) {
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'commerce_store_reference',
+      'cardinality' => 1,
+      'translatable' => FALSE,
+      'locked' => TRUE,
+    );
+    $field = field_create_field($field);
+  }
+
+  if (empty($instance)) {
+    $instance = array(
+      'field_name' => $field_name,
+      'entity_type' => $entity_type,
+      'bundle' => $bundle,
+
+      'label' => $label,
+      'required' => TRUE,
+      'settings' => array(),
+
+      'widget' => array(
+        'type' => 'commerce_store_reference_autocomplete',
+        'weight' => $weight,
+      ),
+    );
+
+    // Set the default display formatters for various view modes.
+    foreach (array('default', 'customer', 'administrator') as $view_mode) {
+      $instance['display'][$view_mode] = array(
+        'label' => 'hidden',
+        'weight' => $weight,
+      );
+    }
+
+    field_create_instance($instance);
+  }
+}
+
+/**
+ * Implements hook_commerce_store_can_delete().
+ */
+function commerce_store_reference_commerce_store_can_delete($store) {
+  $entity_types = array_keys(commerce_store_reference_referencing_entity_types());
+
+  // Use EntityFieldQuery to look for line items referencing this store and do
+  // not allow the delete to occur if one exists.
+  $query = new EntityFieldQuery();
+
+  $query
+    ->entityCondition('entity_type', array($entity_types), 'IN')
+    ->fieldCondition('commerce_store', 'store_id', $store->store_id, '=')
+    ->count();
+
+  return $query->execute() == 0;
+}
+
+/**
+ * Callback to alter the property info of the reference fields.
+ *
+ * @see commerce_store_reference_field_info().
+ */
+function commerce_store_reference_property_info_callback(&$info, $entity_type, $field, $instance, $field_type) {
+  $property = &$info[$entity_type]['bundles'][$instance['bundle']]['properties'][$field['field_name']];
+  $property['options list'] = 'entity_metadata_field_options_list';
+}
+
+/**
+ * Implements hook_commerce_product_calculate_sell_price_line_item_alter().
+ *
+ * Doesn't really have anything to do with calculating prices,
+ * instead it copies store details from product to line item.
+ */
+function commerce_store_reference_commerce_product_calculate_sell_price_line_item_alter($line_item) {
+  $line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $line_item);
+  $product = $line_item_wrapper->commerce_product->value();
+  $line_item->commerce_store = $product->commerce_store;
+}
+
+/**
+ * Exception thrown when the referenced store display formatter goes into a
+ * potentially infinite loop.
+ */
+class CommerceStoreReferenceRecursiveRenderingException extends Exception {}
