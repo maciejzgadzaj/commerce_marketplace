@@ -740,57 +740,6 @@ function commerce_store_reference_options_list($field, $instance = NULL) {
 }
 
 /**
- * Implements hook_module_implements_alter().
- */
-function commerce_store_reference_module_implements_alter(&$implementations, $hook) {
-  if ($hook == 'entity_info_alter') {
-    // Place this module's implementation of hook_entity_info_alter() is at the
-    // end of the invocation list so it can react to view modes altered onto the
-    // store entity type from other modules like Display Suite.
-    $group = $implementations['commerce_store_reference'];
-    unset($implementations['commerce_store_reference']);
-    $implementations['commerce_store_reference'] = $group;
-  }
-}
-
-/**
- * Implements hook_entity_info_alter().
- *
- * Adds the line item and the store display-specific view modes to the store.
- */
-function commerce_store_reference_entity_info_alter(&$entity_info) {
-  $entity_info['commerce_store']['view modes']['line_item'] = array(
-    'label' => t('Line item'),
-    'custom settings' => TRUE,
-  );
-
-  // Query the field tables directly to avoid creating a loop in the Field API:
-  // it is not legal to call any of the field_info_*() in
-  // hook_entity_info(), as field_read_instances() calls entity_get_info().
-  $query = db_select('field_config_instance', 'fci', array('fetch' => PDO::FETCH_ASSOC));
-  $query->join('field_config', 'fc', 'fc.id = fci.field_id');
-  $query->fields('fci', array('entity_type'));
-  $query->condition('fc.type', 'commerce_store_reference');
-  $query->condition('fc.deleted', 0);
-  $query->distinct();
-
-  foreach ($query->execute() as $instance) {
-    $entity_type = $instance['entity_type'];
-
-    if (!empty($entity_info[$entity_type]['view modes'])) {
-      foreach ($entity_info[$entity_type]['view modes'] as $view_mode => $view_mode_info) {
-        $entity_info['commerce_store']['view modes'][$entity_type . '_' . $view_mode] = array(
-          'label' => t('@entity_type: @view_mode', array('@entity_type' => $entity_info[$entity_type]['label'], '@view_mode' => $view_mode_info['label'])),
-
-          // UX: Enable the 'Node: teaser' mode by default, if present.
-          'custom settings' => $entity_type == 'node' && $view_mode == 'teaser',
-        );
-      }
-    }
-  }
-}
-
-/**
  * Creates a required, locked instance of a store reference field on the
  * specified bundle.
  *
