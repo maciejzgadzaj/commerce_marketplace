@@ -15,7 +15,7 @@ function commerce_store_requirements($phase) {
   // During installation make sure that commerce_store entity doesn't exist yet.
   if ($phase == 'install') {
     $entities = entity_get_info();
-    if ($entities['commerce_store']) {
+    if (isset($entities['commerce_store'])) {
       $requirements['commerce_store'] = array(
         'description' => $t("Entity <em>commerce_store</em> already exists. Please make sure it doesn't exist before enabling this module."),
         'severity' => REQUIREMENT_ERROR,
