@@ -1,7 +1,7 @@
 name = Store UI
 description = Exposes a default UI for Stores through store edit forms and default Views.
 core = 7.x
-package = Commerce (contrib)
+package = Commerce Marketplace
 dependencies[] = commerce_store
 dependencies[] = commerce_ui
 dependencies[] = field_ui

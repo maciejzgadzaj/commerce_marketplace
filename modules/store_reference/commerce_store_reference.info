@@ -1,6 +1,6 @@
 name = Store Reference
 description = Defines a store reference field and default display formatters.
-package = Commerce (contrib)
+package = Commerce Marketplace
 dependencies[] = commerce_store
 dependencies[] = entity
 dependencies[] = options

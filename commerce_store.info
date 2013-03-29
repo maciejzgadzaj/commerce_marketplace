@@ -1,7 +1,7 @@
 name = Store
 description = Defines the Store entity and associated features.
 core = 7.x
-package = Commerce (contrib)
+package = Commerce Marketplace
 dependencies[] = commerce
 
 ; Module includes
