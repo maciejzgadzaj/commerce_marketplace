@@ -52,6 +52,9 @@ function commerce_store_reference_configure_referencing_entity_types() {
 /**
  * Returns an array of entity types and their bundles
  * which should be referencing commerce store.
+ *
+ * @TODO: Not sure yet if all of those will really be needed,
+ * so perhaps at one point some should be removed.
  */
 function commerce_store_reference_referencing_entity_types() {
   $entity_types = array();
@@ -61,18 +64,11 @@ function commerce_store_reference_referencing_entity_types() {
     $entity_types['commerce_product'] = array_keys(commerce_product_types());
   }
 
-  // Add store field to product bundle of commerce_line_item.
-  if (module_exists('commerce_line_item')) {
-    $entity = entity_get_info('commerce_line_item');
-    if (!empty($entity['bundles']['product'])) {
-      $entity_types['commerce_line_item'] = array('product');
-    }
+  // Add store field to product bundle of commerce_order.
+  if (module_exists('commerce_order')) {
+    $entity = entity_get_info('commerce_order');
+    $entity_types['commerce_order'] = array_keys($entity['bundles']);
   }
-
-  // Add store field to all product display content types.
-//  if (module_exists('node')) {
-//    $entity_types['node'] = array_keys(commerce_product_reference_node_types());
-//  }
 
   // Allow the entity types to be altered by other modules.
   drupal_alter('commerce_store_reference_referencing_entity_types', $entity_types);
@@ -831,18 +827,6 @@ function commerce_store_reference_commerce_store_can_delete($store) {
 function commerce_store_reference_property_info_callback(&$info, $entity_type, $field, $instance, $field_type) {
   $property = &$info[$entity_type]['bundles'][$instance['bundle']]['properties'][$field['field_name']];
   $property['options list'] = 'entity_metadata_field_options_list';
-}
-
-/**
- * Implements hook_commerce_product_calculate_sell_price_line_item_alter().
- *
- * Doesn't really have anything to do with calculating prices,
- * instead it copies store details from product to line item.
- */
-function commerce_store_reference_commerce_product_calculate_sell_price_line_item_alter($line_item) {
-  $line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $line_item);
-  $product = $line_item_wrapper->commerce_product->value();
-  $line_item->commerce_store = $product->commerce_store;
 }
 
 /**
