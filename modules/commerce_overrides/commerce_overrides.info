@@ -1,0 +1,9 @@
+name = Commerce Overrides
+description = Provides overrides for default Drupal Commerce behaviors and workflows.
+package = Commerce Marketplace
+dependencies[] = commerce_store
+dependencies[] = commerce_store_reference
+core = 7.x
+
+; Views handlers
+files[] = includes/views/handlers/commerce_overrides_handler_area_order_total.inc

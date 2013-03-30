@@ -1,0 +1,87 @@
+<?php
+
+/**
+ * @file
+ * Provides overrides for Drupal Commerce behaviors and workflows.
+ */
+
+/**
+ * Include overrides for specific Drupal Commerce modules.
+ */
+require_once 'includes/overrides/commerce_cart.inc';
+require_once 'includes/overrides/commerce_checkout.inc';
+require_once 'includes/overrides/commerce_order.inc';
+require_once 'includes/overrides/commerce_customer.inc';
+
+/**
+ * Implements hook_menu_alter().
+ */
+function commerce_overrides_menu_alter(&$items) {
+  $items['cart']['page callback'] = 'commerce_overrides_cart_view';
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function commerce_overrides_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'commerce_overrides') . '/includes/views',
+  );
+}
+
+/**
+ * Implements hook_views_data_alter().
+ */
+function commerce_overrides_views_data_alter(&$data) {
+  $data['commerce_order']['order_total']['area']['handler'] = 'commerce_overrides_handler_area_order_total';
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function commerce_overrides_form_alter(&$form, &$form_state, $form_id) {
+  // Override original add to cart form submit callback with our own to make
+  // sure new order is created for each store.
+  if (strpos($form_id, 'commerce_cart_add_to_cart_form_') !== FALSE) {
+    $delta = array_search('commerce_cart_add_to_cart_form_submit', $form['#submit']);
+    $form['#submit'][$delta] = 'commerce_overrides_cart_add_to_cart_form_submit';
+  }
+
+  // Add extra submit functions to update statuses of all orders when moving
+  // from shopping cart to checkout.
+  if (strpos($form_id, 'views_form_commerce_cart_form_') === 0) {
+    // Only add the Checkout button if the cart form View shows line items.
+    $view = reset($form_state['build_info']['args']);
+    if (!empty($view->result)) {
+      $form['actions']['checkout']['#submit'][] = 'commerce_overrides_checkout_line_item_views_form_submit';
+    }
+  }
+
+  // Add extra submit functions to update statuses of all orders when moving
+  // within checkout steps and back from checkout to shopping cart.
+  if (strpos($form_id, 'commerce_checkout_form_') !== FALSE) {
+    if (!empty($form['buttons']['continue'])) {
+      $form['buttons']['continue']['#submit'][] = 'commerce_overrides_checkout_form_submit';
+    }
+    if (!empty($form['buttons']['back'])) {
+      $form['buttons']['back']['#submit'][] = 'commerce_overrides_checkout_form_back_submit';
+    }
+    if (!empty($form['buttons']['cancel'])) {
+      $form['buttons']['cancel']['#submit'][] = 'commerce_overrides_checkout_form_cancel_submit';
+    }
+  }
+}
+
+/**
+ * Implements hook_commerce_checkout_pane_info_alter().
+ */
+function commerce_overrides_commerce_checkout_pane_info_alter(&$checkout_panes) {
+  // Override "Shopping cart contents" pane to show line items from all orders
+  // and calculate correct total.
+  $checkout_panes['cart_contents']['callbacks']['checkout_form'] = 'commerce_overrides_cart_contents_pane_checkout_form';
+
+  // Override "Billing information" pane form submit to add provided billing
+  // information to all orders.
+  $checkout_panes['customer_profile_billing']['callbacks']['checkout_form_submit'] = 'commerce_overrides_customer_profile_pane_checkout_form_submit';
+}
