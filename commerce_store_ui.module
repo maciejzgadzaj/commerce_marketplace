@@ -2,6 +2,7 @@
 
 /**
  * @file
+ * Exposes a default UI for Stores through store edit forms.
  */
 
 /**

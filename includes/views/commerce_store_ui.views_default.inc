@@ -93,7 +93,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'commerce_store';
   $handler->display->display_options['fields']['title']['field'] = 'title';
-  $handler->display->display_options['fields']['title']['link_to_store'] = 1;
+  $handler->display->display_options['fields']['title']['link_to_store'] = 'admin';
   /* Field: Commerce Store: Type */
   $handler->display->display_options['fields']['type']['id'] = 'type';
   $handler->display->display_options['fields']['type']['table'] = 'commerce_store';

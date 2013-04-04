@@ -12,7 +12,10 @@ class commerce_store_ui_handler_field_store extends views_handler_field {
   function init(&$view, &$options) {
     parent::init($view, $options);
 
-    if (!empty($this->options['link_to_store'])) {
+    if (
+      !empty($this->options['link_to_store'])
+      && in_array($this->options['link_to_store'], array('customer', 'admin'))
+    ) {
       $this->additional_fields['store_id'] = 'store_id';
     }
   }
@@ -20,7 +23,7 @@ class commerce_store_ui_handler_field_store extends views_handler_field {
   function option_definition() {
     $options = parent::option_definition();
 
-    $options['link_to_store'] = array('default' => FALSE);
+    $options['link_to_store'] = array('default' => 'none');
 
     return $options;
   }
@@ -32,10 +35,15 @@ class commerce_store_ui_handler_field_store extends views_handler_field {
     parent::options_form($form, $form_state);
 
     $form['link_to_store'] = array(
-      '#title' => t("Link this field to the store's administrative view page"),
-      '#description' => t('This will override any other link you have set.'),
-      '#type' => 'checkbox',
-      '#default_value' => !empty($this->options['link_to_store']),
+      '#type' => 'radios',
+      '#title' => t('Link this field to'),
+      '#description' => t('If Customer or Administrator are selected, this will override any other link you have set.'),
+      '#options' => array(
+        'none' => t('Nothing, unless specified in <em>Rewrite results</em> below'),
+        'customer' => t('The customer view page'),
+        'admin' => t('The administrator view page'),
+      ),
+      '#default_value' => $this->options['link_to_store'],
     );
   }
 
@@ -45,10 +53,20 @@ class commerce_store_ui_handler_field_store extends views_handler_field {
    * Data should be made XSS safe prior to calling this function.
    */
   function render_link($data, $values) {
-    if (!empty($this->options['link_to_store']) && $data !== NULL && $data !== '') {
+    if (
+      !empty($this->options['link_to_store'])
+      && in_array($this->options['link_to_store'], array('customer', 'admin'))
+      && $data !== NULL
+      && $data !== ''
+    ) {
       $store_id = $this->get_value($values, 'store_id');
       $this->options['alter']['make_link'] = TRUE;
-      $this->options['alter']['path'] = 'stores/' . $store_id;
+      if ($this->options['link_to_store'] == 'admin') {
+        $this->options['alter']['path'] = 'admin/commerce/stores/' . $store_id;
+      }
+      elseif ($this->options['link_to_store'] == 'customer') {
+        $this->options['alter']['path'] = 'stores/' . $store_id;
+      }
     }
 
     return $data;
