@@ -13,8 +13,8 @@ function commerce_store_ui_views_default_views() {
   // Stores admin list at admin/commerce/stores.
   $view = new view();
   $view->name = 'stores';
-  $view->description = '';
-  $view->tag = 'default';
+  $view->description = 'Display a list of stores for the site admin.';
+  $view->tag = 'commerce store';
   $view->base_table = 'commerce_store';
   $view->human_name = 'Stores';
   $view->core = 7;
