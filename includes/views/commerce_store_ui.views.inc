@@ -105,15 +105,33 @@ function commerce_store_ui_views_data() {
     );
   }
 
-  // Expose the creator uid.
+  // Expose the owner uid.
   $data['commerce_store']['uid'] = array(
-    'title' => t('Creator'),
-    'help' => t('Relate a store to the user who created it.'),
+    'title' => t('Uid'),
+    'help' => t("The owner's user ID."),
+    'field' => array(
+      'handler' => 'views_handler_field_user',
+      'click sortable' => TRUE,
+    ),
+    'argument' => array(
+      'handler' => 'views_handler_argument_user_uid',
+      'name field' => 'name', // display this field in the summary
+    ),
+    'filter' => array(
+      'title' => t('Name'),
+      'handler' => 'views_handler_filter_user_name',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
     'relationship' => array(
+      'title' => t('Owner'),
+      'help' => t("Relate this store to its owner's user account"),
       'handler' => 'views_handler_relationship',
       'base' => 'users',
+      'base field' => 'uid',
       'field' => 'uid',
-      'label' => t('Store creator'),
+      'label' => t('Store owner'),
     ),
   );
 
