@@ -74,7 +74,7 @@ function commerce_store_ui_views_data() {
       'click sortable' => TRUE,
     ),
     'filter' => array(
-      'handler' => 'views_handler_filter_string',
+      'handler' => 'commerce_store_ui_handler_filter_store_title',
     ),
     'sort' => array(
       'handler' => 'views_handler_sort',
