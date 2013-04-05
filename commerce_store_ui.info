@@ -18,5 +18,4 @@ files[] = includes/views/handlers/commerce_store_ui_handler_field_store_link.inc
 files[] = includes/views/handlers/commerce_store_ui_handler_field_store_link_delete.inc
 files[] = includes/views/handlers/commerce_store_ui_handler_field_store_link_edit.inc
 files[] = includes/views/handlers/commerce_store_ui_handler_field_store_operations.inc
-files[] = includes/views/handlers/commerce_store_ui_handler_filter_store_title.inc
 files[] = includes/views/handlers/commerce_store_ui_handler_filter_store_type.inc
