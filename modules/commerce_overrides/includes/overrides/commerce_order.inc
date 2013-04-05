@@ -84,3 +84,24 @@ function commerce_overrides_order_calculate_total($orders) {
 
   return $total;
 }
+
+/**
+ * Returns the total quantity of an array of line items in all orders.
+ *
+ * @param $line_items
+ *   The array of line items whose quantities you want to count; also accepts an
+ *   EntityListWrapper of a line item reference field.
+ * @param $types
+ *   An array of line item types to filter by before counting.
+ *
+ * @return
+ *   The total quantity of all the matching line items.
+ */
+function commerce_overrides_order_quantity($orders) {
+  $quantity = 0;
+  foreach ($orders as $key => $order) {
+    $wrapper = entity_metadata_wrapper('commerce_order', $order);
+    $quantity += commerce_line_items_quantity($wrapper->commerce_line_items, commerce_product_line_item_types());
+  }
+  return $quantity;
+}

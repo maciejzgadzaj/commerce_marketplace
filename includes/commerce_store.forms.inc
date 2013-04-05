@@ -14,6 +14,8 @@
  *     with only a store type defined.
  */
 function commerce_store_store_form($form, &$form_state, $store) {
+  global $user;
+
   // Ensure this include file is loaded when the form is rebuilt from the cache.
   $form_state['build_info']['files']['form'] = drupal_get_path('module', 'commerce_store') . '/includes/commerce_store.forms.inc';
 
@@ -38,17 +40,38 @@ function commerce_store_store_form($form, &$form_state, $store) {
 
   field_attach_form('commerce_store', $store, $form, $form_state, $langcode);
 
-  $form['status'] = array(
-    '#type' => 'radios',
-    '#title' => t('Status'),
-    '#description' => t('Disabled stores cannot be added to shopping carts and may be hidden in administrative store lists.'),
-    '#options' => array(
-      '1' => t('Active'),
-      '0' => t('Disabled'),
+  $form['additional_settings'] = array(
+    '#type' => 'vertical_tabs',
+    '#weight' => 99,
+  );
+
+  // Store owner information.
+  $owner = user_load($store->uid);
+  $form['owner'] = array(
+    '#type' => 'fieldset',
+    '#access' => user_access('administer stores'),
+    '#title' => t('Store owner'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#group' => 'additional_settings',
+    '#attributes' => array(
+      'class' => array('store-form-owner'),
     ),
-    '#default_value' => $store->status,
-    '#required' => TRUE,
-    '#weight' => 35,
+    '#attached' => array(
+      'js' => array(
+        drupal_get_path('module', 'commerce_store_ui') . '/commerce_store_ui.js',
+      ),
+    ),
+    '#weight' => 20,
+  );
+  $form['owner']['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Store owner'),
+    '#maxlength' => 60,
+    '#autocomplete_path' => 'user/autocomplete',
+    '#default_value' => !empty($owner->name) ? $owner->name : '',
+    '#weight' => -1,
+    '#description' => t('Owner of the store will have full control over the store, its orders and customers.'),
   );
 
   // Load the store type to get the default revision setting.
@@ -56,27 +79,63 @@ function commerce_store_store_form($form, &$form_state, $store) {
 
   // When updating a store, do not collapse the Change History fieldset if the
   // store type is configured to create a new revision by default.
-  $form['change_history'] = array(
+  $form['revision_information'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Change history'),
+    '#title' => t('Revision information'),
     '#collapsible' => TRUE,
     '#collapsed' => empty($store->store_id) || empty($store_type['revision']),
+    '#group' => 'additional_settings',
+    '#attributes' => array(
+      'class' => array('store-form-revision-information'),
+    ),
     '#weight' => 50,
   );
   if (!empty($store->store_id)) {
-    $form['change_history']['revision'] = array(
+    $form['revision_information']['revision'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Create new revision on update'),
+      '#title' => t('Create new revision'),
       '#description' => t('If an update log message is entered, a revision will be created even if this is unchecked.'),
       '#default_value' => $store_type['revision'],
       '#access' => user_access('administer commerce_store entities'),
     );
+    // Check the revision log checkbox when the log textarea is filled in.
+    // This must not happen if "Create new revision" is enabled by default, since
+    // the state would auto-disable the checkbox otherwise.
+    if (empty($store->revision)) {
+      $form['revision_information']['revision']['#states'] = array(
+        'checked' => array(
+          'textarea[name="log"]' => array('empty' => FALSE),
+        ),
+      );
+    }
   }
-  $form['change_history']['log'] = array(
+  $form['revision_information']['log'] = array(
     '#type' => 'textarea',
     '#title' => !empty($store->store_id) ? t('Update log message') : t('Creation log message'),
     '#rows' => 4,
     '#description' => t('Provide an explanation of the changes you are making. This will provide a meaningful history of changes to this store.'),
+  );
+
+  // Node options for administrators
+  $form['options'] = array(
+    '#type' => 'fieldset',
+    '#access' => user_access('administer stores'),
+    '#title' => t('Status options'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#group' => 'additional_settings',
+    '#attributes' => array(
+      'class' => array('store-form-options'),
+    ),
+    '#attached' => array(
+      'js' => array(drupal_get_path('module', 'commerce_store_ui') . '/commerce_store_ui.js'),
+    ),
+    '#weight' => 95,
+  );
+  $form['options']['status'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Active'),
+    '#default_value' => $store->status,
   );
 
   $form['actions'] = array(
@@ -118,6 +177,12 @@ function commerce_store_store_form($form, &$form_state, $store) {
 function commerce_store_store_form_validate($form, &$form_state) {
   $store = $form_state['commerce_store'];
 
+  // Validate the "Store owner" field. Empty value is fine too,
+  // as in such a case we just use current user.
+  if (!empty($form_state['values']['name']) && !($account = user_load_by_name($form_state['values']['name']))) {
+    form_set_error('name', t('The username %name does not exist.', array('%name' => $form_state['values']['name'])));
+  }
+
   // Notify field widgets to validate their data.
   field_attach_form_validate('commerce_store', $store, $form, $form_state);
 }
@@ -135,8 +200,12 @@ function commerce_store_store_form_submit($form, &$form_state) {
   $store->status = $form_state['values']['status'];
   $store->language = $form_state['values']['language'];
 
-  // Set the store's uid if it's being created at this time.
-  if (empty($store->store_id)) {
+  // If no store owner was provided in the form, use current user.
+  if (!empty($form_state['values']['name'])) {
+    $account = user_load_by_name($form_state['values']['name']);
+    $store->uid = $account->uid;
+  }
+  else {
     $store->uid = $user->uid;
   }
 

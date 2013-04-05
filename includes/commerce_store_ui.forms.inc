@@ -66,7 +66,7 @@ function commerce_store_ui_store_type_form($form, &$form_state, $store_type) {
 
   $form['store_type']['revision'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Default stores of this type to be saved as new revisions when edited.'),
+    '#title' => t('By default stores of this type to be saved as new revisions when edited.'),
     '#default_value' => $store_type['revision'],
   );
 

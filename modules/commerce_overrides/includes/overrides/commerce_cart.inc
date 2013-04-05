@@ -326,11 +326,7 @@ function commerce_overrides_cart_view() {
   if ($orders = commerce_overrides_cart_order_load_multiple($user->uid)) {
 
     // Calculate total quantity in all orders for all stores.
-    $quantity = 0;
-    foreach ($orders as $order) {
-      $wrapper = entity_metadata_wrapper('commerce_order', $order);
-      $quantity += commerce_line_items_quantity($wrapper->commerce_line_items, commerce_product_line_item_types());
-    }
+    $quantity = commerce_overrides_order_quantity($orders);
 
     // Only show the cart form if we found product line items.
     if ($quantity > 0) {
