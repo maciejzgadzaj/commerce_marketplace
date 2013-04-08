@@ -199,6 +199,20 @@ function commerce_store_schema() {
   return $schema;
 }
 
+/**
+ * Implements hook_install().
+ */
+function commerce_store_install() {
+  user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, array(
+    'view own commerce_store entities',
+    'edit own commerce_store entities',
+    'view any commerce_product entity in own store',
+    'edit any commerce_product entity in own store',
+    'view any commerce_order entity in own store',
+    'edit any commerce_order entity in own store',
+  ));
+  drupal_set_message(t('Required store-related user permissions were granted to the <em>authenticated user</em> role. It is advised to review them on the <a href="@permissions_user">Permissions page</a>.', array('@permissions_user' => url('admin/people/permissions', array('fragment' => 'module-commerce_store')))));
+}
 
 /*
  * Implements hook_uninstall().
