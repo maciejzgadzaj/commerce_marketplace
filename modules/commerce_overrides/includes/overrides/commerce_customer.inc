@@ -6,13 +6,13 @@
  */
 
 /**
- * Checkout pane callback: submits a customer profile edit form.
- *
  * Overrides commerce_customer_profile_pane_checkout_form_submit().
+ *
+ * Checkout pane callback: submits a customer profile edit form.
  */
 function commerce_overrides_customer_profile_pane_checkout_form_submit($form, &$form_state, $checkout_pane, $order) {
-  global $user;
-
+  $order_group = $form_state['build_info']['args'][2];
+  $orders = $form_state['build_info']['args'][3];
   $profile = $form_state['values'][$checkout_pane['pane_id']]['customer_profile'];
 
   // Ensure the profile is active.
@@ -30,18 +30,15 @@ function commerce_overrides_customer_profile_pane_checkout_form_submit($form, &$
   commerce_customer_profile_save($profile);
 
   // Store the profile ID for the related field as specified on the settings form.
-  if ($orders = commerce_overrides_cart_order_load_multiple($user->uid)) {
-    foreach ($orders as $order) {
-      $wrapper = entity_metadata_wrapper('commerce_order', $order);
+  foreach ($orders as $order) {
+    $wrapper = entity_metadata_wrapper('commerce_order', $order);
 
-      if ($field_name = variable_get('commerce_' . $checkout_pane['pane_id'] . '_field', '')) {
-        $wrapper->{$field_name} = $profile;
-      }
-      else {
-        // Or make the association in the order's data array if no field was found.
-        $order->data['profiles'][$checkout_pane['pane_id']] = $profile->profile_id;
-      }
-
+    if ($field_name = variable_get('commerce_' . $checkout_pane['pane_id'] . '_field', '')) {
+      $wrapper->{$field_name} = $profile;
+    }
+    else {
+      // Or make the association in the order's data array if no field was found.
+      $order->data['profiles'][$checkout_pane['pane_id']] = $profile->profile_id;
     }
   }
 }

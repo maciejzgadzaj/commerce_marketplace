@@ -6,6 +6,8 @@
  */
 
 /**
+ * Overrides commerce_cart_add_to_cart_form_submit().
+ *
  * Form submit handler: add the selected product to the cart.
  */
 function commerce_overrides_cart_add_to_cart_form_submit($form, &$form_state) {
@@ -62,36 +64,9 @@ function commerce_overrides_cart_add_to_cart_form_submit($form, &$form_state) {
 }
 
 /**
+ * Overrides commerce_cart_product_add().
+ *
  * Adds the specified product to a customer's shopping cart.
- *
- * @param $uid
- *   The uid of the user whose cart you are adding the product to.
- * @param $line_item
- *   An unsaved product line item to be added to the cart with the following data
- *   on the line item being used to determine how to add the product to the cart:
- *   - $line_item->commerce_product: reference to the product to add to the cart.
- *   - $line_item->quantity: quantity of this product to add to the cart.
- *   - $line_item->data: data array that is saved with the line item if the line
- *     item is added to the cart as a new item; merged into an existing line
- *     item if combination is possible.
- *   - $line_item->order_id: this property does not need to be set when calling
- *     this function, as it will be set to the specified user's current cart
- *     order ID.
- *   Additional field data on the line item may be considered when determining
- *   whether or not line items can be combined in the cart. This includes the
- *   line item type, referenced product, and any line item fields that have been
- *   exposed on the Add to Cart form.
- * @param $combine
- *   Boolean indicating whether or not to combine like products on the same line
- *   item, incrementing an existing line item's quantity instead of adding a
- *   new line item to the cart order. When the incoming line item is combined
- *   into an existing line item, field data on the existing line item will be
- *   left unchanged. Only the quantity will be incremented and the data array
- *   will be updated by merging the data from the existing line item onto the
- *   data from the incoming line item, giving precedence to the most recent data.
- *
- * @return
- *   The new or updated line item object or FALSE on failure.
  */
 function commerce_overrides_cart_product_add($uid, $line_item, $combine = TRUE) {
   // Do not add the line item if it doesn't have a unit price.
@@ -107,7 +82,11 @@ function commerce_overrides_cart_product_add($uid, $line_item, $combine = TRUE) 
 
   // If no order existed, create one now.
   if (empty($order)) {
+    // We need to get order group ID before calling commerce_cart_order_new(),
+    // as it will already save a new order with order group ID set to 0.
+    $order_group = commerce_overrides_get_current_order_group_id();
     $order = commerce_cart_order_new($uid);
+    $order->order_group = $order_group;
   }
 
   // Set the incoming line item's order_id.
@@ -201,17 +180,66 @@ function commerce_overrides_cart_product_add($uid, $line_item, $combine = TRUE) 
 }
 
 /**
+ * Overrides commerce_cart_checkout_form_cancel_submit().
+ *
+ * Submit handler to take back the order to cart status on cancel in checkout.
+ */
+function commerce_overrides_cart_checkout_form_cancel_submit($form, &$form_state) {
+  global $user;
+
+  if ($orders = commerce_overrides_cart_order_load_multiple($user->uid)) {
+    foreach ($orders as $order) {
+      // Update the order to the cart status.
+      $order = commerce_order_status_update($order, 'cart', TRUE);
+
+      // Skip saving in the status update and manually save here to force a save
+      // even when the status doesn't actually change.
+      if (variable_get('commerce_order_auto_revision', TRUE)) {
+        $form_state['order']->revision = TRUE;
+        $form_state['order']->log = t('Customer manually canceled the checkout process.');
+      }
+
+      commerce_order_save($order);
+    }
+  }
+
+  drupal_set_message(t('Checkout of your current order has been canceled and may be resumed when you are ready.'));
+
+  // Redirect to cart on cancel.
+  $form_state['redirect'] = 'cart';
+}
+
+/**
+ * Overrides commerce_cart_line_item_views_form_submit().
+ *
+ * Submit handler to show the shopping cart updated message.
+ */
+function commerce_overrides_cart_line_item_views_form_submit($form, &$form_state) {
+  global $user;
+
+  if ($orders = commerce_overrides_cart_order_load_multiple($user->uid)) {
+    foreach ($orders as $order) {
+      // Reset the status of the order to cart.
+      $order = commerce_order_status_update($order, 'cart', TRUE);
+
+      // Skip saving in the status update and manually save here to force a save
+      // even when the status doesn't actually change.
+      if (variable_get('commerce_order_auto_revision', TRUE)) {
+        $order->revision = TRUE;
+        $order->log = t('Customer updated the order via the shopping cart form.');
+      }
+
+      commerce_order_save($order);
+    }
+  }
+
+  drupal_set_message(t('Your shopping cart has been updated.'));
+}
+
+/**
+ * Extends commerce_cart_order_load().
+ *
  * Loads all shopping cart orders for the specified user and specified store.
- *
- * @param $uid
- *   The uid of the customer whose cart to load.
- *   If left 0, attempts to load an anonymous order from the session.
- * @param $store_id
- *   The ID of the store for which orders should be loaded.
- *   If left empty, orders for all stores will be loaded.
- *
- * @return
- *   An array of fully loaded shopping cart orders.
  */
 function commerce_overrides_cart_order_load_multiple($uid = 0, $store_id = NULL) {
   // Retrieve the order ID for the specified user's current shopping cart.
@@ -222,18 +250,10 @@ function commerce_overrides_cart_order_load_multiple($uid = 0, $store_id = NULL)
 }
 
 /**
- * Loads the most recent shopping cart order
- * for the specified user and specified store.
+ * Extends commerce_cart_order_load().
  *
- * @param $uid
- *   The uid of the customer whose cart to load.
- *   If left 0, attempts to load an anonymous order from the session.
- * @param $store_id
- *   The ID of the store for which an order should be loaded.
- *   If left empty, order for any store could be loaded.
- *
- * @return
- *   Fully loaded shopping cart order.
+ * Loads the most recent shopping cart order for the specified user and
+ * specified store.
  */
 function commerce_overrides_cart_order_load($uid = 0, $store_id = NULL) {
   $orders = commerce_overrides_cart_order_load_multiple($uid, $store_id);
@@ -241,14 +261,9 @@ function commerce_overrides_cart_order_load($uid = 0, $store_id = NULL) {
 }
 
 /**
+ * Extends commerce_cart_order_id().
+ *
  * Returns the current cart order ID for the given user.
- *
- * @param $uid
- *   The uid of the customer whose cart to load. If left 0, attempts to load
- *   an anonymous order from the session.
- *
- * @return
- *   The array of cart order IDs.
  */
 function commerce_overrides_cart_order_ids($uid = 0, $store_id = NULL) {
   // Cart order IDs will be cached keyed by $uid.
@@ -311,10 +326,32 @@ function commerce_overrides_cart_order_ids($uid = 0, $store_id = NULL) {
 }
 
 /**
- * Displays the shopping cart form and associated information.
+ * Overrides commerce_cart_checkout_router().
  *
- * Overrides commerce_cart_view(), providing options to display a view
- * of line items from multiple user's orders (for multiple stores).
+ * Redirects invalid checkout attempts or displays the checkout form if valid.
+ */
+function commerce_overrides_cart_checkout_router() {
+  global $user;
+
+  // Load the shopping cart orders.
+  $orders = commerce_overrides_cart_order_load_multiple($user->uid);
+
+  // If no shopping cart order could be found, redirect away from checkout.
+  if (empty($orders) || commerce_overrides_order_quantity($orders) == 0) {
+    drupal_set_message(t('Add some items to your cart and then try checking out.'));
+    drupal_goto(variable_get('commerce_checkout_empty_redirect', ''));
+  }
+
+  $order_group = commerce_overrides_get_current_order_group_id();
+  drupal_goto('checkout/' . $order_group);
+}
+
+/**
+ * Overrides commerce_cart_view().
+ *
+ * Displays the shopping cart form and associated information, providing option
+ * to display a view of line items from multiple user's orders (for multiple
+ * stores).
  */
 function commerce_overrides_cart_view() {
   global $user;
@@ -326,7 +363,11 @@ function commerce_overrides_cart_view() {
   if ($orders = commerce_overrides_cart_order_load_multiple($user->uid)) {
 
     // Calculate total quantity in all orders for all stores.
-    $quantity = commerce_overrides_order_quantity($orders);
+    $quantity = 0;
+    foreach ($orders as $order) {
+      $wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $quantity += commerce_line_items_quantity($wrapper->commerce_line_items, commerce_product_line_item_types());
+    }
 
     // Only show the cart form if we found product line items.
     if ($quantity > 0) {

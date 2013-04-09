@@ -1,0 +1,25 @@
+<?php
+
+/**
+ * Implements hook_schema_alter().
+ */
+function commerce_overrides_schema_alter(&$schema) {
+  $schema['commerce_order']['fields']['order_group'] = array(
+    'description' => 'The primary identifier for an order group.',
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'default' => 0,
+  );
+}
+
+/**
+ * Implements hook_install().
+ */
+function commerce_overrides_install() {
+  if (!db_field_exists('commerce_order', 'order_group')) {
+    $schema = drupal_get_schema('commerce_order');
+    db_add_field('commerce_order', 'order_group', $schema['fields']['order_group']);
+  }
+  db_query('UPDATE {commerce_order} SET order_group = order_id WHERE order_group = 0');
+}

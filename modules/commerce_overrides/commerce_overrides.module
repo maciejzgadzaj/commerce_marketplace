@@ -18,6 +18,22 @@ require_once 'includes/overrides/commerce_customer.inc';
  */
 function commerce_overrides_menu_alter(&$items) {
   $items['cart']['page callback'] = 'commerce_overrides_cart_view';
+
+  $items['checkout']['page callback'] = 'commerce_overrides_cart_checkout_router';
+  $items['checkout']['module'] = 'commerce_overrides';
+  $items['checkout']['file'] = 'includes/overrides/commerce_checkout.inc';
+
+  $items['checkout/%'] = $items['checkout/%commerce_order'];
+  $items['checkout/%']['page callback'] = 'commerce_overrides_checkout_router';
+  $items['checkout/%']['module'] = 'commerce_overrides';
+  $items['checkout/%']['file'] = 'includes/overrides/commerce_checkout.inc';
+  unset($items['checkout/%commerce_order']);
+
+  $items['checkout/%/%commerce_checkout_page'] = $items['checkout/%commerce_order/%commerce_checkout_page'];
+  $items['checkout/%/%commerce_checkout_page']['page callback'] = 'commerce_overrides_checkout_router';
+  $items['checkout/%/%commerce_checkout_page']['module'] = 'commerce_overrides';
+  $items['checkout/%/%commerce_checkout_page']['file'] = 'includes/overrides/commerce_checkout.inc';
+  unset($items['checkout/%commerce_order/%commerce_checkout_page']);
 }
 
 /**
@@ -48,27 +64,46 @@ function commerce_overrides_form_alter(&$form, &$form_state, $form_id) {
     $form['#submit'][$delta] = 'commerce_overrides_cart_add_to_cart_form_submit';
   }
 
-  // Add extra submit functions to update statuses of all orders when moving
-  // from shopping cart to checkout.
+  // Shopping cart form.
   if (strpos($form_id, 'views_form_commerce_cart_form_') === 0) {
-    // Only add the Checkout button if the cart form View shows line items.
+    // If the cart form View shows line items, update submits for both buttons
+    // so that when either one is used, statuses of all orders are updated.
     $view = reset($form_state['build_info']['args']);
     if (!empty($view->result)) {
-      $form['actions']['checkout']['#submit'][] = 'commerce_overrides_checkout_line_item_views_form_submit';
+      // Shopping cart: Update cart button - update
+      if (FALSE !== $key = array_search('commerce_cart_line_item_views_form_submit', $form['actions']['submit']['#submit'])) {
+        $form['actions']['submit']['#submit'][$key] = 'commerce_overrides_cart_line_item_views_form_submit';
+      }
+      if (FALSE !== $key = array_search('commerce_checkout_line_item_views_form_submit', $form['actions']['checkout']['#submit'])) {
+        $form['actions']['checkout']['#submit'][$key] = 'commerce_overrides_checkout_line_item_views_form_submit';
+      }
     }
   }
 
+  // Checkout forms.
   // Add extra submit functions to update statuses of all orders when moving
   // within checkout steps and back from checkout to shopping cart.
   if (strpos($form_id, 'commerce_checkout_form_') !== FALSE) {
-    if (!empty($form['buttons']['continue'])) {
-      $form['buttons']['continue']['#submit'][] = 'commerce_overrides_checkout_form_submit';
+    if (!empty($form['buttons']['continue']['#submit'])) {
+      if (FALSE !== $key = array_search('commerce_checkout_form_submit', $form['buttons']['continue']['#submit'])) {
+        $form['buttons']['continue']['#submit'][$key] = 'commerce_overrides_checkout_form_submit';
+      }
     }
-    if (!empty($form['buttons']['back'])) {
-      $form['buttons']['back']['#submit'][] = 'commerce_overrides_checkout_form_back_submit';
+    if (!empty($form['buttons']['back']['#submit'])) {
+      if (FALSE !== $key = array_search('commerce_checkout_form_back_submit', $form['buttons']['back']['#submit'])) {
+        $form['buttons']['back']['#submit'][$key] = 'commerce_overrides_checkout_form_back_submit';
+      }
     }
-    if (!empty($form['buttons']['cancel'])) {
-      $form['buttons']['cancel']['#submit'][] = 'commerce_overrides_checkout_form_cancel_submit';
+    if (!empty($form['buttons']['cancel']['#submit'])) {
+      if (FALSE !== $key = array_search('commerce_checkout_form_cancel_submit', $form['buttons']['cancel']['#submit'])) {
+        $form['buttons']['cancel']['#submit'][$key] = 'commerce_overrides_cart_checkout_form_cancel_submit';
+      }
+      // Original 'commerce_checkout_form_cancel_submit' could already be
+      // overriden by commerce_cart_form_alter() and changed to
+      // 'commerce_cart_checkout_form_cancel_submit', so let's check this too.
+      if (FALSE !== $key = array_search('commerce_cart_checkout_form_cancel_submit', $form['buttons']['cancel']['#submit'])) {
+        $form['buttons']['cancel']['#submit'][$key] = 'commerce_overrides_cart_checkout_form_cancel_submit';
+      }
     }
   }
 }

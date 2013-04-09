@@ -6,13 +6,10 @@
  */
 
 /**
+ * Overrides commerce_order_calculate_total().
+ *
  * Calculates the order total, updating the commerce_order_total field data in
  * the order object this function receives.
- *
- * @param $order
- *   The order object whose order total should be calculated.
- *
- * @see commerce_line_items_total()
  */
 function commerce_overrides_order_calculate_total($orders) {
   // First determine the currency to use for the order total.
@@ -87,15 +84,6 @@ function commerce_overrides_order_calculate_total($orders) {
 
 /**
  * Returns the total quantity of an array of line items in all orders.
- *
- * @param $line_items
- *   The array of line items whose quantities you want to count; also accepts an
- *   EntityListWrapper of a line item reference field.
- * @param $types
- *   An array of line item types to filter by before counting.
- *
- * @return
- *   The total quantity of all the matching line items.
  */
 function commerce_overrides_order_quantity($orders) {
   $quantity = 0;
@@ -104,4 +92,27 @@ function commerce_overrides_order_quantity($orders) {
     $quantity += commerce_line_items_quantity($wrapper->commerce_line_items, commerce_product_line_item_types());
   }
   return $quantity;
+}
+
+/**
+ * Returns all orders from one order group.
+ */
+function commerce_overrides_order_group_load($order_group) {
+  return !empty($order_group) ? commerce_order_load_multiple(NULL, array('order_group' => array($order_group))) : array();
+}
+
+/**
+ * Returns order group ID for the current user.
+ */
+function commerce_overrides_get_current_order_group_id() {
+  global $user;
+  $orders = commerce_overrides_cart_order_load_multiple($user->uid);
+  if (!empty($orders)) {
+    $order = reset($orders);
+    return $order->order_group;
+  }
+  else {
+    $last_group = db_select('commerce_order','co')->fields('co', array('order_group'))->orderby('order_group','DESC')->range(0,1)->execute()->fetchField();
+    return ++$last_group;
+  }
 }
