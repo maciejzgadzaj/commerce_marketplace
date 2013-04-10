@@ -4,6 +4,7 @@ core = 7.x
 package = Commerce Marketplace
 dependencies[] = commerce_store
 dependencies[] = commerce_ui
+dependencies[] = commerce_order_ui
 dependencies[] = field_ui
 dependencies[] = views
 core = 7.x

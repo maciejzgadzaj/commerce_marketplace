@@ -330,6 +330,25 @@ function commerce_store_entity_access_permissions($entity_type) {
 }
 
 /**
+ * Implements hook_commerce_entity_access().
+ */
+function commerce_store_commerce_entity_access($op, $entity, $account, $entity_type) {
+  // Get all entity types that reference store entity.
+  $store_referencing_entity_types = &drupal_static(__FUNCTION__);
+  if (empty($store_referencing_entity_types)) {
+    $store_referencing_entity_types = array_keys(commerce_store_reference_referencing_entity_types());
+  }
+  // If current entity references store entity, check the store owner, and allow
+  // access if store owner is the same as current user.
+  if (in_array($entity_type, $store_referencing_entity_types)) {
+    $wrapper = entity_metadata_wrapper($entity_type, $entity);
+    if (isset($entity->commerce_store) && $wrapper->commerce_store->uid->value() == $account->uid) {
+      return TRUE;
+    }
+  }
+}
+
+/**
  * Implements hook_query_TAG_alter().
  */
 function commerce_store_query_commerce_order_access_alter(QueryAlterableInterface $query) {
