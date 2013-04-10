@@ -373,13 +373,34 @@ function commerce_overrides_cart_view() {
     if ($quantity > 0) {
 
       // Order ID view contextual filter should be a string
-      // listing all order IDs separated by a comma.
+      // listing all order IDs separated by a comma.p
       $order_ids = implode(',', array_keys($orders));
 
-      // Add the form for editing the cart contents.
+       // Add the form for editing the cart contents.
       $content = commerce_embed_view('commerce_cart_form', 'default', array($order_ids), 'cart');
     }
   }
 
   return $content;
+}
+
+/**
+ * Implements hook_user_login().
+ * Extends commerce_cart_user_login().
+ *
+ * When a user logs into the site, if they have a shopping cart orders
+ * they should all be updated to belong to their user account.
+ */
+function commerce_overrides_user_login(&$edit, $account) {
+  // Get the user's anonymous shopping cart orders if any exists.
+  if ($orders = commerce_overrides_cart_order_load_multiple()) {
+    // Convert them to an authenticated cart.
+    foreach ($orders as $order) {
+      // Last user order (with ID == commerce_cart_order_id()) will be updated
+      // by commerce_cart_user_login(), so no need to do it here too.
+      if ($order->order_id != commerce_cart_order_id()) {
+        commerce_cart_order_convert($order, $account);
+      }
+    }
+  }
 }
