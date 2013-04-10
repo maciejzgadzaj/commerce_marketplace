@@ -65,7 +65,7 @@ class commerce_store_ui_handler_field_store extends views_handler_field {
         $this->options['alter']['path'] = 'admin/commerce/stores/' . $store_id;
       }
       elseif ($this->options['link_to_store'] == 'customer') {
-        $this->options['alter']['path'] = 'stores/' . $store_id;
+        $this->options['alter']['path'] = 'store/' . $store_id;
       }
     }
 

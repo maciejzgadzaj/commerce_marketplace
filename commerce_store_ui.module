@@ -115,7 +115,7 @@ function commerce_store_ui_menu() {
     }
   }
 
-  $items['stores/%commerce_store'] = array(
+  $items['store/%commerce_store'] = array(
     'title callback' => 'commerce_store_ui_store_title',
     'title arguments' => array(1),
     'page callback' => 'commerce_store_ui_store_view',

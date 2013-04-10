@@ -517,7 +517,7 @@ function commerce_store_reference_field_formatter_view($entity_type, $entity, $f
             $result[$delta] = array(
               '#type' => 'link',
               '#title' => $stores[$item['store_id']]->title,
-              '#href' => 'stores/' . $stores[$item['store_id']]->store_id,
+              '#href' => 'store/' . $stores[$item['store_id']]->store_id,
             );
           }
           else {

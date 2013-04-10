@@ -773,7 +773,7 @@ function commerce_store_get_properties($store, array $options, $name) {
     case 'creator':
       return $store->uid;
     case 'view_url':
-      return url('stores/' . $store->store_id, $options);
+      return url('store/' . $store->store_id, $options);
     case 'edit_url':
       return url('admin/commerce/stores/' . $store->store_id . '/edit', $options);
   }
