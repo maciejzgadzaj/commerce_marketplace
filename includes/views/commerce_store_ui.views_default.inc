@@ -197,6 +197,7 @@ function commerce_store_ui_views_default_views() {
     'created' => 'created',
     'changed' => 'changed',
     'title' => 'title',
+    'name' => 'name',
     'commerce_order_total' => 'commerce_order_total',
     'status' => 'status',
     'operations' => 'operations',
@@ -231,8 +232,15 @@ function commerce_store_ui_views_default_views() {
       'separator' => '',
       'empty_column' => 0,
     ),
+    'name' => array(
+      'sortable' => 1,
+      'default_sort_order' => 'asc',
+      'align' => '',
+      'separator' => '',
+      'empty_column' => 0,
+    ),
     'commerce_order_total' => array(
-      'sortable' => 0,
+      'sortable' => 1,
       'default_sort_order' => 'asc',
       'align' => '',
       'separator' => '',
@@ -263,6 +271,12 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['relationships']['commerce_store_store_id']['table'] = 'field_data_commerce_store';
   $handler->display->display_options['relationships']['commerce_store_store_id']['field'] = 'commerce_store_store_id';
   $handler->display->display_options['relationships']['commerce_store_store_id']['required'] = TRUE;
+  /* Relationship: Commerce Order: Owner */
+  $handler->display->display_options['relationships']['uid']['id'] = 'uid';
+  $handler->display->display_options['relationships']['uid']['table'] = 'commerce_order';
+  $handler->display->display_options['relationships']['uid']['field'] = 'uid';
+  $handler->display->display_options['relationships']['uid']['label'] = 'Customer';
+  $handler->display->display_options['relationships']['uid']['required'] = TRUE;
   /* Field: Commerce Order: Order number */
   $handler->display->display_options['fields']['order_number']['id'] = 'order_number';
   $handler->display->display_options['fields']['order_number']['table'] = 'commerce_order';
@@ -287,6 +301,12 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['fields']['title']['field'] = 'title';
   $handler->display->display_options['fields']['title']['relationship'] = 'commerce_store_store_id';
   $handler->display->display_options['fields']['title']['label'] = 'Store';
+  /* Field: User: Name */
+  $handler->display->display_options['fields']['name']['id'] = 'name';
+  $handler->display->display_options['fields']['name']['table'] = 'users';
+  $handler->display->display_options['fields']['name']['field'] = 'name';
+  $handler->display->display_options['fields']['name']['relationship'] = 'uid';
+  $handler->display->display_options['fields']['name']['label'] = 'User';
   /* Field: Commerce Order: Order total */
   $handler->display->display_options['fields']['commerce_order_total']['id'] = 'commerce_order_total';
   $handler->display->display_options['fields']['commerce_order_total']['table'] = 'field_data_commerce_order_total';
