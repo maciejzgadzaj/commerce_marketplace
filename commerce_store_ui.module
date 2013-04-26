@@ -447,87 +447,15 @@ function commerce_store_ui_forms($form_id, $args) {
 
   // Define a wrapper ID for the store add / edit form.
   $forms['commerce_store_ui_store_form'] = array(
-    'callback' => 'commerce_store_store_form',
+    'callback' => 'commerce_store_ui_store_form',
   );
 
   // Define a wrapper ID for the store delete confirmation form.
   $forms['commerce_store_ui_store_delete_form'] = array(
-    'callback' => 'commerce_store_store_delete_form',
+    'callback' => 'commerce_store_ui_store_delete_form',
   );
 
   return $forms;
-}
-
-/**
- * Implements hook_form_FORM_ID_alter().
- *
- * The Store UI module instantiates the Store add/edit form at particular
- * paths in the Commerce IA. It uses its own form ID to do so and alters the
- * form here to add in appropriate redirection and an additional button.
- *
- * @see commerce_store_ui_store_form()
- */
-function commerce_store_ui_form_commerce_store_ui_store_form_alter(&$form, &$form_state) {
-  $store = $form_state['commerce_store'];
-
-  // Add a submit handler to the save button to add a redirect.
-  $form['actions']['submit']['#submit'][] = 'commerce_store_ui_store_form_submit';
-
-
-  // Add the save and continue button for new stores.
-  if (empty($store->store_id)) {
-    $form['actions']['save_continue'] = array(
-      '#type' => 'submit',
-      '#value' => t('Save and add another'),
-      '#submit' => $form['actions']['submit']['#submit'],
-      '#suffix' => l(t('Cancel'), 'admin/commerce/stores'),
-      '#weight' => 45,
-    );
-  }
-  else {
-    $form['actions']['submit']['#suffix'] = l(t('Cancel'), 'admin/commerce/stores');
-  }
-}
-
-/**
- * Submit callback for commerce_store_ui_store_form().
- *
- * @see commerce_store_ui_form_commerce_store_ui_store_form_alter()
- */
-function commerce_store_ui_store_form_submit($form, &$form_state) {
-  // Set the redirect based on the button clicked.
-  $array_parents = $form_state['triggering_element']['#array_parents'];
-  $submit_element = array_pop($array_parents);
-
-  if ($submit_element == 'save_continue') {
-    $form_state['redirect'] = 'admin/commerce/stores/add/' . commerce_store_type_to_arg($form_state['commerce_store']->type);
-  }
-  elseif (arg(2) == 'stores' && arg(3) == 'add') {
-    $form_state['redirect'] = 'admin/commerce/stores';
-  }
-}
-
-/**
- * Implements hook_form_FORM_ID_alter().
- *
- * The Store UI module instantiates the Store delete form at a particular
- * path in the Commerce IA. It uses its own form ID to do so and alters the
- * form here to add in appropriate redirection.
- *
- * @see commerce_store_ui_store_delete_form()
- */
-function commerce_store_ui_form_commerce_store_ui_store_delete_form_alter(&$form, &$form_state) {
-  $form['actions']['cancel']['#href'] = 'admin/commerce/stores';
-  $form['#submit'][] = 'commerce_store_ui_store_delete_form_submit';
-}
-
-/**
- * Submit callback for commerce_store_ui_store_delete_form().
- *
- * @see commerce_store_ui_form_commerce_store_ui_store_delete_form_alter()
- */
-function commerce_store_ui_store_delete_form_submit($form, &$form_state) {
-  $form_state['redirect'] = 'admin/commerce/stores';
 }
 
 /**
