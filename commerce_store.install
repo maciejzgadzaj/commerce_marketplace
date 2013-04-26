@@ -203,15 +203,40 @@ function commerce_store_schema() {
  * Implements hook_install().
  */
 function commerce_store_install() {
-  user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, array(
-    'view own commerce_store entities',
-    'edit own commerce_store entities',
-    'view any commerce_product entity in own store',
-    'edit any commerce_product entity in own store',
-    'view any commerce_order entity in own store',
-    'edit any commerce_order entity in own store',
-  ));
-  drupal_set_message(t('Required store-related user permissions were granted to the <em>authenticated user</em> role. It is advised to review them on the <a href="@permissions_user">Permissions page</a>.', array('@permissions_user' => url('admin/people/permissions', array('fragment' => 'module-commerce_store')))));
+  // Create new "merchant" role if it doesn't exist yet.
+  if (!user_role_load_by_name(COMMERCE_STORE_MERCHANT)) {
+    $merchant_role = (object) array(
+      'name' => COMMERCE_STORE_MERCHANT,
+      'weight' => 1,
+    );
+    user_role_save($merchant_role);
+
+    // Grant required permissions to new "merchant" role.
+    user_role_grant_permissions($merchant_role->rid, array(
+      'view own commerce_store entities',
+      'edit own commerce_store entities',
+      'view any commerce_product entity in own store',
+      'edit any commerce_product entity in own store',
+      'view any commerce_order entity in own store',
+      'edit any commerce_order entity in own store',
+      'create payments',
+      'view payments',
+      'update payments',
+      'delete payments',
+    ));
+
+    drupal_set_message(t('New %merchant role was added and required store-related user permissions were granted to this role. It is advised to review them on the <a href="@permissions_user">Permissions page</a>.', array(
+      '@permissions_user' => url('admin/people/permissions', array('fragment' => 'module-commerce_store')),
+      '%merchant' => COMMERCE_STORE_MERCHANT,
+    )));
+  }
+
+  // Set module weight to -1, so its hooks are called before commerce_payment
+  // hooks (see commerce_store_query_commerce_payment_transaction_access_alter()).
+  db_update('system')
+    ->fields(array('weight' => -1))
+    ->condition('name', 'commerce_store')
+    ->execute();
 }
 
 /*
@@ -221,4 +246,6 @@ function commerce_store_uninstall() {
   // Delete any field instance attached to a store type.
   module_load_include('module', 'commerce');
   commerce_delete_instances('commerce_store');
+  // Delete "merchant" role.
+  user_role_delete(COMMERCE_STORE_MERCHANT);
 }

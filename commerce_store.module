@@ -8,6 +8,16 @@
  */
 
 /**
+ * Merchant role name.
+ */
+define('COMMERCE_STORE_MERCHANT', 'merchant');
+
+/**
+ * Include permission handling file.
+ */
+require_once 'includes/commerce_store.permissions.inc';
+
+/**
  * Implements hook_menu().
  */
 function commerce_store_menu() {
@@ -21,6 +31,15 @@ function commerce_store_menu() {
   );
 
   return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function commerce_store_menu_alter(&$items) {
+  // Alter admin order page access callback so that users owning the store
+  // in which an order was made have access to that order too.
+  $items['admin/commerce/orders/%commerce_order']['access callback'] = 'commerce_store_admin_order_view_access';
 }
 
 /**
@@ -263,221 +282,6 @@ function commerce_store_theme() {
       'template' => 'commerce-store-status',
     ),
   );
-}
-
-/**
- * Implements hook_views_api().
- */
-function commerce_store_views_api() {
-  return array(
-    'api' => 3,
-    'path' => drupal_get_path('module', 'commerce_store') . '/includes/views',
-  );
-}
-
-/**
- * Implements hook_permission().
- */
-function commerce_store_permission() {
-  $permissions = array(
-    'administer store types' => array(
-      'title' => t('Administer store types'),
-      'description' => t('Allows users to configure store types and their fields.'),
-      'restrict access' => TRUE,
-    ),
-  );
-
-  $permissions += commerce_entity_access_permissions('commerce_store');
-
-  // Extra permissions for products and orders in own store(s).
-  foreach (array('commerce_product', 'commerce_order') as $entity_type) {
-    $permissions += commerce_store_entity_access_permissions($entity_type);
-  }
-
-  return $permissions;
-}
-
-/**
- * Return permission names for a given entity type.
- */
-function commerce_store_entity_access_permissions($entity_type) {
-  $entity_info = entity_get_info($entity_type);
-  $labels = $entity_info['permission labels'];
-
-  $permissions = array();
-
-  // Generic create and edit permissions.
-  $permissions['view any ' . $entity_type . ' entity in own store'] = array(
-    'title' => t('View any @entity_type of any type in own store', array('@entity_type' => $labels['singular'])),
-  );
-  $permissions['edit any ' . $entity_type . ' entity in own store'] = array(
-    'title' => t('Edit any @entity_type of any type in own store', array('@entity_type' => $labels['singular'])),
-  );
-
-  // Per-bundle create and edit permissions.
-  if (!empty($entity_info['entity keys']['bundle'])) {
-    foreach ($entity_info['bundles'] as $bundle_name => $bundle_info) {
-      $permissions['view any ' . $entity_type . ' entity of bundle ' . $bundle_name . ' in own store'] = array(
-        'title' => t('View any %bundle @entity_type in own store', array('@entity_type' => $labels['singular'], '%bundle' => $bundle_info['label'])),
-      );
-      $permissions['edit any ' . $entity_type . ' entity of bundle ' . $bundle_name . ' in own store'] = array(
-        'title' => t('Edit any %bundle @entity_type in own store', array('@entity_type' => $labels['singular'], '%bundle' => $bundle_info['label'])),
-      );
-    }
-  }
-
-  return $permissions;
-}
-
-/**
- * Implements hook_commerce_entity_access().
- */
-function commerce_store_commerce_entity_access($op, $entity, $account, $entity_type) {
-  // Get all entity types that reference store entity.
-  $store_referencing_entity_types = &drupal_static(__FUNCTION__);
-  if (empty($store_referencing_entity_types)) {
-    $store_referencing_entity_types = array_keys(commerce_store_reference_referencing_entity_types());
-  }
-  // If current entity references store entity, check the store owner, and allow
-  // access if store owner is the same as current user.
-  if (in_array($entity_type, $store_referencing_entity_types)) {
-    $wrapper = entity_metadata_wrapper($entity_type, $entity);
-    if (isset($entity->commerce_store) && $wrapper->commerce_store->uid->value() == $account->uid) {
-      return TRUE;
-    }
-  }
-}
-
-/**
- * Implements hook_query_TAG_alter().
- */
-function commerce_store_query_commerce_order_access_alter(QueryAlterableInterface $query) {
-  // Make sure a join with commerce_store table is added to the query.
-  commerce_store_entity_access_query_alter($query, 'commerce_order');
-}
-
-/**
- * Implements hook_query_TAG_alter().
- */
-function commerce_store_query_commerce_product_access_alter(QueryAlterableInterface $query) {
-  // Make sure a join with commerce_store table is added to the query.
-  commerce_store_entity_access_query_alter($query, 'commerce_product');
-}
-
-/**
- * Another generic implementation (besides commerce_entity_access_query_alter())
- * of hook_query_alter() for selected Drupal Commerce entities. This is just to
- * make sure that for all commerce_order and commerce_product select queries
- * there always is a join with commerce_store table added, so we could call our
- * hook_commerce_entity_access_condition_ENTITY_TYPE_alter() implementations
- * below.
- */
-function commerce_store_entity_access_query_alter(QueryAlterableInterface $query, $entity_type) {
-  $tables = &$query->getTables();
-
-  // If join with commerce_store table was not already added by a view...
-  if (!in_array('commerce_store_field_data_commerce_store', array_keys($tables))) {
-    // Read the base table from the query if available or default to the first
-    // table in the query's tables array.
-    if (!isset($base_table) && !$base_table = $query->getMetaData('base_table')) {
-      // Assume that the base table is the first table if not set. It will result
-      // in an invalid query if the first table is not the table we expect,
-      // forcing the caller to actually properly pass a base table in that case.
-      reset($tables);
-      $base_table = key($tables);
-    }
-    $base_table_schema = drupal_get_schema($base_table);
-    $base_table_primary_key = reset($base_table_schema['primary key']);
-
-    // Add join with intermediary field_data_commerce_store table.
-    if (!in_array('field_data_commerce_store', array_keys($tables))) {
-      $query->join(
-        'field_data_commerce_store',
-        'field_data_commerce_store',
-        "$base_table.$base_table_primary_key = field_data_commerce_store.entity_id AND field_data_commerce_store.entity_type = :entity_type AND field_data_commerce_store.deleted = :deleted",
-        array(':entity_type' => $entity_type, ':deleted' => 0)
-      );
-    }
-    // Add join with main commerce_store table.
-    $query->join(
-      'commerce_store',
-      'commerce_store_field_data_commerce_store',
-      "field_data_commerce_store.commerce_store_store_id = commerce_store_field_data_commerce_store.store_id",
-      array()
-    );
-  }
-}
-
-/**
- * Implements hook_commerce_entity_access_condition_ENTITY_TYPE_alter().
- *
- * This alter hook allows the Store module to add conditions to the query used
- * to determine if a user has view access to a given product. The Store module
- * will always grant users access to view products in stores they own
- * (independent of any permission settings).
- */
-function commerce_store_commerce_entity_access_condition_commerce_product_alter(&$conditions, $context) {
-  // Make sure that a merchant (a user which owns at least one store) has
-  // access to all products belonging to their store. This is used for
-  // "Merchant products" view in user profile (/user/%/merchant/products).
-  if (user_access('view any ' . $context['entity_type'] . ' entity in own store', $context['account'])) {
-    // Actually this condition already is in the query, but we need to add
-    // something to avoid commerce_entity_access_query_alter() adding default
-    // "where('1 = 0')" condition if no other conditions are defined.
-    $conditions->condition('commerce_store_field_data_commerce_store.uid', $context['account']->uid, '=');
-  }
-  // TODO: add access check for specific product types.
-}
-
-/**
- * Implements hook_commerce_entity_access_condition_ENTITY_TYPE_alter().
- *
- * This alter hook allows the Store module to add conditions to the query used
- * to determine if a user has view access to a given order. The Store module
- * will always grant users access to view orders made in stores they own
- * (independent of any permission settings).
- */
-function commerce_store_commerce_entity_access_condition_commerce_order_alter(&$conditions, $context) {
-  // First, start with "Shopping cart" and "Checkout" views - need to override
-  // commerce_cart_commerce_entity_access_condition_commerce_order_alter()
-  // to make sure that user is granted access to all their orders, not only the
-  // last one.
-  $current_order_ids = commerce_overrides_cart_order_ids($context['account']->uid);
-  // Always give the current user access to their own carts regardless of order
-  // view permissions.
-  if (!empty($current_order_ids)) {
-    $conditions->condition($context['base_table'] . '.order_id', $current_order_ids, 'IN');
-  }
-
-  // Next, make sure that a merchant (a user which owns at least one store) has
-  // access to all orders made in their store by other users. This is used for
-  // "Merchant orders" view in user profile (/user/%/merchant/orders).
-  if (user_access('view any ' . $context['entity_type'] . ' entity in own store', $context['account'])) {
-    // Actually this condition already is in the query, but we need to add
-    // something to avoid commerce_entity_access_query_alter() adding default
-    // "where('1 = 0')" condition if no other conditions are defined.
-    $conditions->condition('commerce_store_field_data_commerce_store.uid', $context['account']->uid, '=');
-  }
-  // TODO: add access check for specific order types.
-}
-
-/**
- * Implements hook_commerce_entity_access_condition_ENTITY_TYPE_alter().
- *
- * This alter hook allows the Store module to add conditions to the query used
- * to determine if a user has view access to a given order or product, which has
- * a relationship to a store added.
- */
-function commerce_store_commerce_entity_access_condition_commerce_store_alter(&$conditions, $context) {
-  // Although this hook is invoked with entity_type in $context set to
-  // commerce_store, what we really are interested in here is either product
-  // order entity, which should be available in context's base_table key.
-  // TODO: Should we worry that base table name could be different from entity
-  // type name?
-  if (user_access('view any ' . $context['base_table'] . ' entity in own store', $context['account'])) {
-    $conditions->condition('commerce_store_field_data_commerce_store.uid', $context['account']->uid, '=');
-  }
-  // TODO: add access check for specific product and order types.
 }
 
 /**
@@ -777,13 +581,6 @@ function commerce_store_access($op, $store = NULL, $account = NULL) {
 }
 
 /**
- * Implementation of hook_query_commerce_store_access_alter().
- */
-function commerce_store_query_commerce_store_access_alter(QueryAlterableInterface $query) {
-  return commerce_entity_access_query_alter($query, 'commerce_store');
-}
-
-/**
  * Callback for getting store properties.
  * @see commerce_store_entity_property_info()
  */
@@ -984,13 +781,6 @@ function _commerce_store_match_stores_standard($instance, $string = '', $match =
   }
 
   return $matches;
-}
-
-/**
- * Access callback: determines access to a store's translation tab.
- */
-function commerce_store_entity_translation_tab_access($store) {
-  return entity_translation_tab_access('commerce_store', $store);
 }
 
 /**

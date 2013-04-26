@@ -344,7 +344,7 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
   // Node options for administrators
   $form['options'] = array(
     '#type' => 'fieldset',
-    '#access' => user_access('administer stores'),
+    '#access' => commerce_store_access('update', $store),
     '#title' => t('Status options'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
@@ -442,11 +442,11 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
   // If no store owner was provided in the form, use current user.
   if (!empty($form_state['values']['owner']['name'])) {
     $account = user_load_by_name($form_state['values']['owner']['name']);
-    $store->uid = $account->uid;
   }
   else {
-    $store->uid = $user->uid;
+    $account = $user;
   }
+  $store->uid = $account->uid;
 
   // Trigger a new revision if the checkbox was enabled or a log message supplied.
   if (
@@ -464,6 +464,20 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
   // Save the store.
   commerce_store_save($store);
   drupal_set_message(t('Store saved.'));
+
+  // Add "merchant" role to user owning the store.
+  if ($merchant_role = user_role_load_by_name(COMMERCE_STORE_MERCHANT)) {
+    if (empty($account->roles[$merchant_role->rid])) {
+      $edit = array('roles' => $account->roles);
+      $edit['roles'][$merchant_role->rid] = $merchant_role->name;
+      user_save($account, $edit);
+    }
+  }
+
+  // TODO: Do we want to remove "merchant" role from previous store owner?
+  // When store owner is being changed, it might happen that previous store
+  // owner (which we have stored in $form_state['commerce_store']) no longer
+  // owns any store - should we remove "merchant" role from such user then?
 
   // Set the redirect based on the button clicked.
   $array_parents = $form_state['triggering_element']['#array_parents'];
