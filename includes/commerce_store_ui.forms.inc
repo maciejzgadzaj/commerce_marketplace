@@ -241,8 +241,8 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
 
   // Ensure this include file is loaded when the form is rebuilt from the cache.
   $form_state['build_info']['files']['form'] = drupal_get_path('module', 'commerce_store') . '/includes/commerce_store_ui.forms.inc';
+
   $form['#tree'] = TRUE;
-  $form_state['#tree'] = TRUE;
 
   // Add the default field elements.
   $form['title'] = array(
@@ -329,7 +329,7 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
     if (empty($store->revision)) {
       $form['revision_information']['revision']['#states'] = array(
         'checked' => array(
-          'textarea[name="log"]' => array('empty' => FALSE),
+          'textarea[name="revision_information[log]"]' => array('empty' => FALSE),
         ),
       );
     }
@@ -418,8 +418,8 @@ function commerce_store_ui_store_form_validate($form, &$form_state) {
 
   // Validate the "Store owner" field. Empty value is fine too,
   // as in such a case we just use current user.
-  if (!empty($form_state['values']['name']) && !($account = user_load_by_name($form_state['values']['name']))) {
-    form_set_error('name', t('The username %name does not exist.', array('%name' => $form_state['values']['name'])));
+  if (!empty($form_state['values']['owner']['name']) && !($account = user_load_by_name($form_state['values']['owner']['name']))) {
+    form_set_error('name', t('The username %name does not exist.', array('%name' => $form_state['values']['owner']['name'])));
   }
 
   // Notify field widgets to validate their data.
@@ -440,8 +440,8 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
   $store->language = $form_state['values']['language'];
 
   // If no store owner was provided in the form, use current user.
-  if (!empty($form_state['values']['name'])) {
-    $account = user_load_by_name($form_state['values']['name']);
+  if (!empty($form_state['values']['owner']['name'])) {
+    $account = user_load_by_name($form_state['values']['owner']['name']);
     $store->uid = $account->uid;
   }
   else {
@@ -449,11 +449,13 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
   }
 
   // Trigger a new revision if the checkbox was enabled or a log message supplied.
-  if ((user_access('administer commerce_store entities') && !empty($form_state['values']['revision'])) ||
-    (!user_access('administer commerce_store entities') && !empty($form['change_history']['revision']['#default_value'])) ||
-    !empty($form_state['values']['log'])) {
+  if (
+    (user_access('administer commerce_store entities') && !empty($form_state['values']['revision_information']['revision']))
+    || (!user_access('administer commerce_store entities') && !empty($form['change_history']['revision']['#default_value']))
+    || !empty($form_state['values']['revision_information']['log'])
+  ) {
     $store->revision = TRUE;
-    $store->log = $form_state['values']['log'];
+    $store->log = $form_state['values']['revision_information']['log'];
   }
 
   // Notify field widgets.
