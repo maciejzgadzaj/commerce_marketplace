@@ -7,11 +7,17 @@
 
 
 /**
- * Form callback: create or edit a store type.
+ * Form constructor for edit a store type form.
  *
- * @param $store_type
+ * @param array $store_type
  *   The store type array to edit or for a create form an empty store type
- *     array with properties instantiated but not populated.
+ *   array with properties instantiated but not populated.
+ *
+ * @see commerce_store_ui_store_type_form_validate()
+ * @see commerce_store_ui_store_type_form_submit()
+ * @see commerce_store_ui_store_type_form_delete_submit()
+ *
+ * @ingroup forms
  */
 function commerce_store_ui_store_type_form($form, &$form_state, $store_type) {
   // Ensure this include file is loaded when the form is rebuilt from the cache.
@@ -128,7 +134,10 @@ function commerce_store_ui_store_type_form($form, &$form_state, $store_type) {
 }
 
 /**
- * Validation callback for commerce_store_store_type_form().
+ * Form validation handler for commerce_store_store_type_form().
+ *
+ * @see commerce_store_ui_store_type_form_submit()
+ * @see commerce_store_ui_store_type_form_delete_submit()
  */
 function commerce_store_ui_store_type_form_validate($form, &$form_state) {
   $store_type = $form_state['store_type'];
@@ -142,7 +151,10 @@ function commerce_store_ui_store_type_form_validate($form, &$form_state) {
 }
 
 /**
- * Form submit handler: save a store type.
+ * Form submission handler for commerce_store_ui_store_type_form().
+ *
+ * @see commerce_store_ui_store_type_form_validate()
+ * @see commerce_store_ui_store_type_form_delete_submit()
  */
 function commerce_store_ui_store_type_form_submit($form, &$form_state) {
   $store_type = $form_state['store_type'];
@@ -179,21 +191,25 @@ function commerce_store_ui_store_type_form_submit($form, &$form_state) {
 }
 
 /**
- * Submit callback for delete button on commerce_store_ui_store_type_form().
+ * Form submission handler for commerce_store_ui_store_type_form().
  *
- * @see commerce_store_ui_store_type_form()
+ * @see commerce_store_ui_store_type_form_validate()
+ * @see commerce_store_ui_store_type_form_submit()
  */
 function commerce_store_ui_store_type_form_delete_submit($form, &$form_state) {
   $form_state['redirect'] = 'admin/commerce/stores/types/' . commerce_store_type_to_arg($form_state['store_type']['type']) . '/delete';
 }
 
 /**
- * Form callback: confirmation form for deleting a store type.
+ * Form constructor for confirmation form for deleting a store type.
  *
- * @param $store_type
+ * @param array $store_type
  *   The store type array to be deleted.
  *
  * @see confirm_form()
+ * @see commerce_store_ui_store_type_delete_form_submit()
+ *
+ * @ingroup forms
  */
 function commerce_store_ui_store_type_delete_form($form, &$form_state, $store_type) {
   $form_state['store_type'] = $store_type;
@@ -216,7 +232,7 @@ function commerce_store_ui_store_type_delete_form($form, &$form_state, $store_ty
 }
 
 /**
- * Submit callback for commerce_store_store_type_delete_form().
+ * Form submission handler for commerce_store_store_type_delete_form().
  */
 function commerce_store_ui_store_type_delete_form_submit($form, &$form_state) {
   $store_type = $form_state['store_type'];
@@ -230,11 +246,16 @@ function commerce_store_ui_store_type_delete_form_submit($form, &$form_state) {
 }
 
 /**
- * Form callback: create or edit a store.
+ * Form constructor for store edit form.
  *
- * @param $store
+ * @param object $store
  *   The store object to edit or for a create form an empty store object
- *     with only a store type defined.
+ *   with only a store type defined.
+ *
+ * @see commerce_store_ui_store_form_validate()
+ * @see commerce_store_ui_store_form_submit()
+ *
+ * @ingroup forms
  */
 function commerce_store_ui_store_form($form, &$form_state, $store) {
   global $user;
@@ -253,9 +274,6 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
     '#required' => TRUE,
     '#weight' => -5,
   );
-
-  // Add the field related form elements.
-  $form_state['commerce_store'] = $store;
 
   $langcode = entity_language('commerce_store', $store);
 
@@ -298,6 +316,34 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
     '#weight' => -1,
     '#description' => t('Owner of the store will have full control over the store, its orders and customers.'),
   );
+
+  $form['payment_methods'] = array(
+    '#type' => 'fieldset',
+    '#access' => user_access('administer stores'),
+    '#title' => t('Payment methods'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#group' => 'additional_settings',
+    '#attributes' => array(
+      'class' => array('store-form-payment-methods'),
+    ),
+    '#attached' => array(
+      'js' => array(
+        drupal_get_path('module', 'commerce_store_ui') . '/commerce_store_ui.js',
+      ),
+    ),
+    '#weight' => 30,
+  );
+  foreach (commerce_store_enabled_payment_methods() as $method_id => $payment_method) {
+    $form['payment_methods']['enabled'][$method_id] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable %method payment method', array('%method' => $payment_method['title'])),
+      '#tree' => TRUE,
+      '#attributes' => array('title' => $payment_method['title']),
+      '#default_value' => !empty($store->data['payment_methods']['enabled'][$method_id]),
+    );
+  }
+
 
   // Load the store type to get the default revision setting.
   $store_type = commerce_store_type_load($store->type);
@@ -411,10 +457,12 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
 }
 
 /**
- * Validation callback for commerce_store_ui_store_form().
+ * Form validation handler for commerce_store_ui_store_form().
+ *
+ * @see commerce_store_ui_store_form_submit()
  */
 function commerce_store_ui_store_form_validate($form, &$form_state) {
-  $store = $form_state['commerce_store'];
+  $store = $form_state['build_info']['args'][0];
 
   // Validate the "Store owner" field. Empty value is fine too,
   // as in such a case we just use current user.
@@ -427,12 +475,14 @@ function commerce_store_ui_store_form_validate($form, &$form_state) {
 }
 
 /**
- * Submit callback for commerce_store_ui_store_form().
+ * Form submission handler for commerce_store_ui_store_form().
+ *
+ * @see commerce_store_ui_store_form_validate()
  */
 function commerce_store_ui_store_form_submit($form, &$form_state) {
   global $user;
 
-  $store = &$form_state['commerce_store'];
+  $store = $form_state['build_info']['args'][0];
 
   // Save default parameters back into the $store object.
   $store->title = $form_state['values']['title'];
@@ -447,6 +497,8 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
     $account = $user;
   }
   $store->uid = $account->uid;
+
+  $store->data['payment_methods']['enabled'] = $form_state['values']['payment_methods']['enabled'];
 
   // Trigger a new revision if the checkbox was enabled or a log message supplied.
   if (
@@ -489,6 +541,70 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
   elseif (arg(2) == 'stores' && arg(3) == 'add') {
     $form_state['redirect'] = 'admin/commerce/stores';
   }
+}
+
+/**
+ * Form constructor for store payment methods settings form.
+ *
+ * @param object $store
+ *   The store object to edit or for a create form an empty store object
+ *   with only a store type defined.
+ *
+ * @see commerce_store_ui_store_payment_method_form_submit()
+ *
+ * @ingroup forms
+ */
+function commerce_store_ui_store_payment_method_form($form, &$form_state, $store, $payment_method_id) {
+  // Ensure this include file is loaded when the form is rebuilt from the cache.
+  $form_state['build_info']['files']['form'] = drupal_get_path('module', 'commerce_store_ui') . '/includes/commerce_store_ui.forms.inc';
+
+  $payment_methods = commerce_store_enabled_payment_methods();
+  $payment_method = $payment_methods[$payment_method_id];
+  $settings_form_callback = $payment_method['callbacks']['settings_form'];
+
+  if (function_exists($settings_form_callback)) {
+
+    // Original payment method settings form.
+    $defaults = !empty($store->data['payment_methods']['settings'][$payment_method_id]) ? $store->data['payment_methods']['settings'][$payment_method_id] : array();
+    $form = call_user_func($settings_form_callback, $defaults);
+
+    // Keep submitted form elements in the tree so it's easier to populate
+    // the form with defaults next time it is visited.
+    $form['#tree'] = TRUE;
+
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save changes'),
+      '#weight' => 50,
+    );
+    // Override any possible payment method settings form submit function.
+    $form['#submit'] = array('commerce_store_ui_store_payment_method_form_submit');
+  }
+  else {
+    $form['info'] = array(
+      '#type' => 'markup',
+      '#markup' => t('This payment method does not have any settings.'),
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Form submission handler for commerce_store_ui_store_payment_methods_form().
+ *
+ * @see commerce_store_ui_store_payment_methods_form_validate()
+ */
+function commerce_store_ui_store_payment_method_form_submit($form, &$form_state) {
+  $store = $form_state['build_info']['args'][0];
+  $payment_method_id = $form_state['build_info']['args'][1];
+
+  $keys_to_remove = array_flip(array('form_build_id', 'form_token', 'form_id', 'submit', 'op'));
+  $store->data['payment_methods']['settings'][$payment_method_id] = array_diff_key($form_state['values'], $keys_to_remove);
+
+  // Save the payment method settings.
+  commerce_store_save($store);
+  drupal_set_message(t('Payment method settings saved.'));
 }
 
 /**

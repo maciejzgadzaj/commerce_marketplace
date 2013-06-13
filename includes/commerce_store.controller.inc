@@ -14,6 +14,18 @@
 class CommerceStoreEntityController extends DrupalCommerceEntityController {
 
   /**
+   * Unserializes the data property of loaded stores.
+   */
+  public function attachLoad(&$queried_stores, $revision_id = FALSE) {
+    foreach ($queried_stores as $store_id => &$store) {
+      $store->data = unserialize($store->data);
+    }
+
+    // Call the default attachLoad() method. This will add fields.
+    parent::attachLoad($queried_stores, $revision_id);
+  }
+
+  /**
    * Create a default store.
    *
    * @param array $values

@@ -3,6 +3,27 @@
 
 Drupal.behaviors.commerceStoreUIFieldsetSummaries = {
   attach: function (context) {
+
+    // Store owner fieldset.
+    $('fieldset.store-form-owner', context).drupalSetSummary(function (context) {
+      return Drupal.t('@name', { '@name': $('.form-item-owner-name input', context).val() });
+    });
+
+    // Payment methods fieldset.
+    $('fieldset.store-form-payment-methods', context).drupalSetSummary(function (context) {
+      var vals = [];
+
+      $('input:checked', context).each(function () {
+        vals.push(Drupal.checkPlain($.trim($(this).attr('title'))));
+      });
+
+      if (!$('input:checked', context).is(':checked')) {
+        vals.unshift(Drupal.t('None'));
+      }
+      return vals.join(', ');
+    });
+
+    // Revision information fieldset.
     $('fieldset.store-form-revision-information', context).drupalSetSummary(function (context) {
       var revisionCheckbox = $('.form-item-revision input', context);
 
@@ -16,10 +37,7 @@ Drupal.behaviors.commerceStoreUIFieldsetSummaries = {
       return Drupal.t('No revision');
     });
 
-    $('fieldset.store-form-owner', context).drupalSetSummary(function (context) {
-      return Drupal.t('@name', { '@name': $('.form-item-owner-name input', context).val() });
-    });
-
+    // Status options fieldset.
     $('fieldset.store-form-options', context).drupalSetSummary(function (context) {
       var vals = [];
 
