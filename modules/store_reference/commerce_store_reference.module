@@ -715,7 +715,8 @@ function commerce_store_reference_options_list($field, $instance = NULL) {
   $options = array();
 
   // Loop through all store matches.
-  foreach (commerce_store_match_stores($field, $instance) as $store_id => $data) {
+  // Use access tag, so we display only those stores the user has access to.
+  foreach (commerce_store_match_stores($field, $instance, '', 'contains', array(), NULL, TRUE) as $store_id => $data) {
     // Add them to the options list in optgroups by store type.
     $name = check_plain(commerce_store_type_get_name($data['type']));
 

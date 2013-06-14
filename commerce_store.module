@@ -628,7 +628,8 @@ function commerce_store_autocomplete($entity_type, $field_name, $bundle, $string
     $match = isset($field['widget']['autocomplete_match']) ? $field['widget']['autocomplete_match'] : 'contains';
 
     // Get an array of matching stores.
-    $stores = commerce_store_match_stores($field, $instance, $tag_last, $match, array(), 10);
+    // Use access tag, so we display only those stores the user has access to.
+    $stores = commerce_store_match_stores($field, $instance, $tag_last, $match, array(), 10, TRUE);
 
     // Loop through the stores and convert them into autocomplete output.
     foreach ($stores as $store_id => $data) {
