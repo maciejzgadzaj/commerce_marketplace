@@ -113,6 +113,7 @@ function commerce_overrides_get_current_order_group_id() {
   }
   else {
     $last_group = db_select('commerce_order','co')->fields('co', array('order_group'))->orderby('order_group','DESC')->range(0,1)->execute()->fetchField();
-    return ++$last_group;
+    // If no order exists yet, just return 1 as the very first order group ID.
+    return $last_group ? ++$last_group : 1;
   }
 }
