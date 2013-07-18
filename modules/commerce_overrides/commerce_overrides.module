@@ -107,6 +107,7 @@ function commerce_overrides_form_alter(&$form, &$form_state, $form_id) {
   // Add extra submit functions to update statuses of all orders when moving
   // within checkout steps and back from checkout to shopping cart.
   if (strpos($form_id, 'commerce_checkout_form_') !== FALSE) {
+    $form_state['build_info']['files']['form'] = drupal_get_path('module', 'commerce_checkout') . '/includes/commerce_checkout.pages.inc';
     if (!empty($form['buttons']['continue']['#submit'])) {
       if (FALSE !== $key = array_search('commerce_checkout_form_submit', $form['buttons']['continue']['#submit'])) {
         $form['buttons']['continue']['#submit'][$key] = 'commerce_overrides_checkout_form_submit';
@@ -135,9 +136,10 @@ function commerce_overrides_form_alter(&$form, &$form_state, $form_id) {
  * Implements hook_commerce_checkout_pane_info_alter().
  */
 function commerce_overrides_commerce_checkout_pane_info_alter(&$checkout_panes) {
-  // Override "Shopping cart contents" pane to show line items from all orders
-  // and calculate correct total.
+  // Override "Shopping cart contents" pane on the "Checkout" and "Review order"
+  // steps to show line items from all orders and calculate correct total.
   $checkout_panes['cart_contents']['callbacks']['checkout_form'] = 'commerce_overrides_cart_contents_pane_checkout_form';
+  $checkout_panes['cart_contents']['callbacks']['review'] = 'commerce_overrides_cart_contents_pane_review';
 
   // Override "Billing information" pane form submit to add provided billing
   // information to all orders.

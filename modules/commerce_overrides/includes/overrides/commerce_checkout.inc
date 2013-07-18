@@ -70,10 +70,13 @@ function commerce_overrides_checkout_router($order_group, $checkout_page = NULL)
 }
 
 /**
+ * Checkout pane callback: returns the cart contents view for inclusion in the
+ * checkout form on the "Checkout" page.
+ *
  * Overrides commerce_cart_contents_pane_checkout_form().
  *
- * Checkout pane callback: returns the cart contents View for inclusion in the
- * checkout form.
+ * @see commerce_cart_contents_pane_checkout_form()
+ * @see commerce_overrides_commerce_checkout_pane_info_alter()
  */
 function commerce_overrides_cart_contents_pane_checkout_form($form, &$form_state, $checkout_pane, $order) {
   global $user;
@@ -94,6 +97,30 @@ function commerce_overrides_cart_contents_pane_checkout_form($form, &$form_state
   );
 
   return $pane_form;
+}
+
+/**
+ * Checkout pane callback: returns the cart contents view for inclusion in the
+ * checkout form on the "Review" checkout page.
+ *
+ * Overrides commerce_cart_contents_pane_review().
+ *
+ * @see commerce_cart_contents_pane_review()
+ * @see commerce_overrides_commerce_checkout_pane_info_alter()
+ */
+function commerce_overrides_cart_contents_pane_review($form, $form_state, $checkout_pane, $order) {
+  global $user;
+  drupal_add_css(drupal_get_path('module', 'commerce_cart') . '/theme/commerce_cart.theme.css');
+
+  // Extract the View and display keys from the cart contents pane setting.
+  list($view_id, $display_id) = explode('|', variable_get('commerce_cart_contents_pane_view', 'commerce_cart_summary|default'));
+
+  // Function commerce_overrides_cart_order_load_multiple() is provided by
+  // commerce_cart override.
+  $orders = commerce_overrides_cart_order_load_multiple($user->uid);
+  $order_ids = implode(',', array_keys($orders));
+
+  return commerce_embed_view($view_id, $display_id, array($order_ids));
 }
 
 /**
