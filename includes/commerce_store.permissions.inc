@@ -90,59 +90,6 @@ function commerce_store_query_commerce_product_access_alter(QueryAlterableInterf
 }
 
 /**
- * Implements hook_query_TAG_alter().
- *
- * This actually is almost an exact copy of
- * commerce_payment_query_commerce_payment_transaction_access_alter(), needed
- * because we need to join with "commerce_store" table BEFORE calling
- * commerce_entity_access_query_alter() function. For the same reason we needed
- * to set commerce_store module weight to -1, so this hook_query_TAG_alter()
- * implementation is called before that one from commerce_payment module
- * (commerce_payment_query_commerce_payment_transaction_access_alter()).
- */
-function commerce_store_query_commerce_payment_transaction_access_alter(QueryAlterableInterface $query) {
-  // Read the meta-data from the query.
-  if (!$account = $query->getMetaData('account')) {
-    global $user;
-    $account = $user;
-  }
-
-  // If the user has the administration permission, nothing to do.
-  if (user_access('administer payments', $account)) {
-    return;
-  }
-
-  // Join the payment transaction to their orders.
-  if (user_access('view payments', $account)) {
-    $tables = &$query->getTables();
-
-    // Look for an existing commerce_order table.
-    foreach ($tables as $table) {
-      if ($table['table'] === 'commerce_order') {
-        $order_alias = $table['alias'];
-        break;
-      }
-    }
-
-    // If not found, attempt a join against the first table.
-    if (!isset($order_alias)) {
-      reset($tables);
-      $base_table = key($tables);
-      $query->innerJoin('commerce_order', 'commerce_order', '%alias.order_id = ' . $base_table . '.order_id');
-    }
-
-    // Make sure a join with commerce_store table is added to the query.
-    commerce_store_entity_access_query_alter($query, 'commerce_order', 'commerce_order');
-  }
-  else {
-    // The user has access to no payment transaction.
-    $query->where('1 = 0');
-  }
-
-
-}
-
-/**
  * Another generic implementation (besides commerce_entity_access_query_alter())
  * of hook_query_alter() for selected Drupal Commerce entities. This is just to
  * make sure that for all commerce_order and commerce_product select queries

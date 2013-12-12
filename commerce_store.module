@@ -822,28 +822,6 @@ function template_preprocess_commerce_store_status(&$variables) {
 }
 
 /**
- * Returns definitions of all payment methods enabled site-wide.
- */
-function commerce_store_enabled_payment_methods() {
-  // Get all payment method definitions.
-  $payment_method_definitions = commerce_payment_methods();
-
-  // Create a dummy order and invoke the payment methods event that will
-  // populate it with an array of method IDs for available payment methods.
-  $order = (object) array('payment_methods' => array());
-  rules_invoke_all('commerce_payment_methods', $order);
-
-  // Return only enabled payment method definitions.
-  $enabled_payment_methods = array();
-  foreach ($order->payment_methods as $payment_method) {
-    $method_id = $payment_method['method_id'];
-    $enabled_payment_methods[$method_id] = $payment_method_definitions[$method_id];
-  }
-
-  return $enabled_payment_methods;
-}
-
-/**
  * Configures selected entity types to reference a commerce store.
  */
 function commerce_store_configure_referencing_entity_types() {

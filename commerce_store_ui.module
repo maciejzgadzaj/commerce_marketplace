@@ -47,36 +47,13 @@ function commerce_store_ui_menu() {
     'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
     'file' => 'includes/commerce_store_ui.stores.inc',
   );
+  
   $items['admin/commerce/stores/%commerce_store/edit'] = array(
     'title' => 'Edit',
     'type' => MENU_DEFAULT_LOCAL_TASK,
     'weight' => -10,
     'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
   );
-  $items['admin/commerce/stores/%commerce_store/payment_methods'] = array(
-    'title' => 'Payment methods',
-    'type' => MENU_LOCAL_TASK,
-    'page callback' => 'commerce_store_ui_store_payment_methods_overview',
-    'page arguments' => array(3),
-    'access callback' => 'commerce_store_access',
-    'access arguments' => array('update', 3),
-    'weight' => 0,
-    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
-    'file' => 'includes/commerce_store_ui.stores.inc',
-  );
-  foreach (commerce_store_enabled_payment_methods() as $method_id => $payment_method) {
-    $items['admin/commerce/stores/%commerce_store/payment_methods/' . $method_id] = array(
-      'title' => $payment_method['title'],
-      'type' => MENU_LOCAL_TASK,
-      'page callback' => 'commerce_store_ui_store_payment_method_form_wrapper',
-      'page arguments' => array(3, 5),
-      'access callback' => 'commerce_store_access',
-      'access arguments' => array('update', 3),
-      'weight' => 0,
-      'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
-      'file' => 'includes/commerce_store_ui.stores.inc',
-    );
-  }
 
   $items['admin/commerce/stores/%commerce_store/delete'] = array(
     'title' => 'Delete',

@@ -203,6 +203,8 @@ function commerce_store_schema() {
  * Implements hook_install().
  */
 function commerce_store_install() {
+  module_load_include('module', 'commerce');
+
   // Configures selected entity types to reference a commerce store.
   commerce_store_configure_referencing_entity_types();
 
@@ -222,10 +224,6 @@ function commerce_store_install() {
       'edit any commerce_product entity in own store',
       'view any commerce_order entity in own store',
       'edit any commerce_order entity in own store',
-      'create payments',
-      'view payments',
-      'update payments',
-      'delete payments',
     ));
 
     drupal_set_message(t('New %merchant role was added and required store-related user permissions were granted to this role. It is advised to review them on the <a href="@permissions_user">Permissions page</a>.', array(
@@ -233,13 +231,6 @@ function commerce_store_install() {
       '%merchant' => COMMERCE_STORE_MERCHANT,
     )));
   }
-
-  // Set module weight to -1, so its hooks are called before commerce_payment
-  // hooks (see commerce_store_query_commerce_payment_transaction_access_alter()).
-  db_update('system')
-    ->fields(array('weight' => -1))
-    ->condition('name', 'commerce_store')
-    ->execute();
 }
 
 /*
