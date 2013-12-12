@@ -83,7 +83,7 @@ function commerce_store_payment_method_form_wrapper($store, $payment_method_id) 
  */
 function commerce_store_payment_method_form($form, &$form_state, $store, $payment_method_id) {
   // Ensure this include file is loaded when the form is rebuilt from the cache.
-  $form_state['build_info']['files']['form'] = drupal_get_path('module', 'commerce_store_payment') . '/commerce_store_payment.admin.inc';
+  $form_state['build_info']['files']['form'] = drupal_get_path('module', 'commerce_store_payment') . '/includes/commerce_store_payment.admin.inc';
 
   $payment_methods = commerce_store_payment_enabled_methods();
   $payment_method = $payment_methods[$payment_method_id];

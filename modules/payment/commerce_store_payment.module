@@ -20,7 +20,7 @@ function commerce_store_payment_menu() {
     'access arguments' => array('update', 3),
     'weight' => 0,
     'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
-    'file' => 'commerce_store_payment.admin.inc',
+    'file' => 'includes/commerce_store_payment.admin.inc',
   );
 
   foreach (commerce_store_payment_enabled_methods() as $method_id => $payment_method) {
@@ -33,7 +33,7 @@ function commerce_store_payment_menu() {
       'access arguments' => array('update', 3),
       'weight' => 0,
       'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
-      'file' => 'commerce_store_payment.admin.inc',
+      'file' => 'includes/commerce_store_payment.admin.inc',
     );
   }
 
