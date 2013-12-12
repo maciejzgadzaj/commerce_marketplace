@@ -506,7 +506,7 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
   $submit_element = array_pop($array_parents);
 
   if ($submit_element == 'save_continue') {
-    $form_state['redirect'] = 'admin/commerce/stores/add/' . commerce_store_type_to_arg($form_state['commerce_store']->type);
+    $form_state['redirect'] = 'admin/commerce/stores/add/' . commerce_store_type_to_arg($store->type);
   }
   elseif (arg(2) == 'stores' && arg(3) == 'add') {
     $form_state['redirect'] = 'admin/commerce/stores';

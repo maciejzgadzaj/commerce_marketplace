@@ -2,7 +2,7 @@ name = Commerce Overrides
 description = Provides overrides for default Drupal Commerce behaviors and workflows.
 package = Commerce Marketplace
 dependencies[] = commerce_store
-dependencies[] = commerce_store_reference
+dependencies[] = commerce_order
 core = 7.x
 
 ; Views handlers

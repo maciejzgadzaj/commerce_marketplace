@@ -67,7 +67,7 @@ function commerce_store_commerce_entity_access($op, $entity, $account, $entity_t
   // access if store owner is the same as current user.
   if (in_array($entity_type, $store_referencing_entity_types)) {
     $wrapper = entity_metadata_wrapper($entity_type, $entity);
-    if (isset($entity->commerce_store) && $wrapper->commerce_store->uid->value() == $account->uid) {
+    if (!empty($entity->commerce_store) && $wrapper->commerce_store->uid->value() == $account->uid) {
       return TRUE;
     }
   }
@@ -129,7 +129,7 @@ function commerce_store_entity_access_query_alter(QueryAlterableInterface $query
 
     // Add join with intermediary field_data_commerce_store table.
     if (!in_array('field_data_commerce_store', array_keys($tables))) {
-      $query->join(
+      $query->leftJoin(
         'field_data_commerce_store',
         'field_data_commerce_store',
         "$base_table_alias.$base_table_primary_key = field_data_commerce_store.entity_id AND field_data_commerce_store.entity_type = :entity_type AND field_data_commerce_store.deleted = :deleted",
@@ -137,10 +137,10 @@ function commerce_store_entity_access_query_alter(QueryAlterableInterface $query
       );
     }
     // Add join with main commerce_store table.
-    $query->join(
+    $query->leftJoin(
       'commerce_store',
       'commerce_store_field_data_commerce_store',
-      "field_data_commerce_store.commerce_store_store_id = commerce_store_field_data_commerce_store.store_id",
+      "field_data_commerce_store.commerce_store_target_id = commerce_store_field_data_commerce_store.store_id",
       array()
     );
   }
