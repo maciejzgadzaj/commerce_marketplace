@@ -9,6 +9,8 @@
  * Overrides commerce_cart_add_to_cart_form_submit().
  *
  * Form submit handler: add the selected product to the cart.
+ *
+ * @see commerce_cart_add_to_cart_form_submit()
  */
 function commerce_overrides_cart_add_to_cart_form_submit($form, &$form_state) {
   $product_id = $form_state['values']['product_id'];
@@ -67,6 +69,8 @@ function commerce_overrides_cart_add_to_cart_form_submit($form, &$form_state) {
  * Overrides commerce_cart_product_add().
  *
  * Adds the specified product to a customer's shopping cart.
+ *
+ * @see commerce_cart_product_add()
  */
 function commerce_overrides_cart_product_add($uid, $line_item, $combine = TRUE) {
   // Do not add the line item if it doesn't have a unit price.
@@ -314,7 +318,7 @@ function commerce_overrides_cart_order_ids($uid = 0, $store_id = NULL) {
     ->propertyOrderBy('order_id', 'DESC');
   // If store ID was provided look for order in specific store only.
   if ($store_id) {
-    $query->fieldCondition('commerce_store', 'store_id', $store_id, '=');
+    $query->fieldCondition('commerce_store', 'target_id', $store_id, '=');
   }
   // For anonymous users look for a shopping cart order ID in the session.
   if (!$uid) {

@@ -842,3 +842,153 @@ function commerce_store_enabled_payment_methods() {
 
   return $enabled_payment_methods;
 }
+
+/**
+ * Configures selected entity types to reference a commerce store.
+ */
+function commerce_store_configure_referencing_entity_types() {
+  foreach (commerce_store_referencing_entity_types() as $entity_type => $bundles) {
+    commerce_store_configure_referencing_entity_type($entity_type, $bundles);
+  }
+}
+
+/**
+ * Returns an array of entity types and their bundles
+ * which should be referencing commerce store.
+ *
+ * @TODO: Not sure yet if all of those will really be needed,
+ * so perhaps at one point some should be removed.
+ */
+function commerce_store_referencing_entity_types() {
+  $entity_types = array();
+
+  // Add Store field to all commerce_product bundles.
+  if (module_exists('commerce_product')) {
+    $entity_types['commerce_product'] = array_keys(commerce_product_types());
+  }
+
+  // Add store field to product bundle of commerce_order.
+  if (module_exists('commerce_order')) {
+    $entity = entity_get_info('commerce_order');
+    $entity_types['commerce_order'] = array_keys($entity['bundles']);
+  }
+
+  // Allow the entity types to be altered by other modules.
+  drupal_alter('commerce_store_referencing_entity_types', $entity_types);
+
+  return $entity_types;
+}
+
+/**
+ * Ensures the store reference field is present
+ * on selected bundles of the specified entity types.
+ */
+function commerce_store_configure_referencing_entity_type($entity_type, $bundles) {
+  foreach ($bundles as $bundle) {
+    commerce_store_create_instance('commerce_store', $entity_type, $bundle, t('Store'));
+  }
+}
+
+/**
+ * Creates a required, locked instance of a store reference field on the
+ * specified bundle.
+ *
+ * @param $field_name
+ *   The name of the field; if it already exists, a new instance of the existing
+ *     field will be created. For fields governed by the Commerce modules, this
+ *     should begin with commerce_.
+ * @param $entity_type
+ *   The type of entity the field instance will be attached to.
+ * @param $bundle
+ *   The bundle name of the entity the field instance will be attached to.
+ * @param $label
+ *   The label of the field instance.
+ * @param $weight
+ *   The default weight of the field instance widget and display.
+ */
+function commerce_store_create_instance($field_name, $entity_type, $bundle, $label, $weight = 0) {
+  // If a field type we know should exist isn't found, clear the Field cache.
+  if (!field_info_field_types('entityreference')) {
+    field_cache_clear();
+  }
+
+  // Check if the field already exists, and create it if it doesn't.
+  $field = field_info_field($field_name);
+  if (empty($field)) {
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'entityreference',
+      'module' => 'entityreference',
+      'cardinality' => 1,
+      'translatable' => FALSE,
+      'locked' => TRUE,
+      'foreign keys' => array(
+        'commerce_store' => array(
+          'columns' => array(
+            'target_id' => 'store_id',
+          ),
+          'table' => 'commerce_store',
+        ),
+      ),
+      'indexes' => array(
+        'target_id' => array(
+          0 => 'target_id',
+        ),
+      ),
+      'settings' => array(
+        'handler' => 'base',
+        'handler_settings' => array(
+          'behaviors' => array(
+            'views-select-list' => array(
+              'status' => 0,
+            ),
+          ),
+          'sort' => array(
+            'type' => 'none',
+          ),
+          'target_bundles' => array(),
+        ),
+        'target_type' => 'commerce_store',
+      ),
+    );
+    field_create_field($field);
+  }
+
+  // Check if the field instance already exists, and create it if it doesn't.
+  $instance = field_info_instance($entity_type, $field_name, $bundle);
+  if (empty($instance)) {
+    $instance = array(
+      'field_name' => $field_name,
+      'entity_type' => $entity_type,
+      'bundle' => $bundle,
+
+      'label' => $label,
+      'required' => FALSE,
+      'settings' => array(),
+
+      'widget' => array(
+        'active' => 1,
+        'module' => 'entityreference',
+        'settings' => array(
+          'match_operator' => 'CONTAINS',
+          'path' => '',
+          'size' => 60,
+        ),
+        'type' => 'entityreference_autocomplete',
+        'weight' => $weight,
+      ),
+    );
+
+    // Set the default display formatters for various view modes.
+    foreach (array('default', 'customer', 'administrator') as $view_mode) {
+      $instance['display'][$view_mode] = array(
+        'label' => 'hidden',
+        'settings' => array(),
+        'type' => 'hidden',
+        'weight' => $weight,
+      );
+    }
+
+    field_create_instance($instance);
+  }
+}

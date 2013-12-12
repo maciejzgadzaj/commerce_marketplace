@@ -270,10 +270,10 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['empty']['area']['content'] = 'You don\'t have any orders in any of your stores yet.';
   $handler->display->display_options['empty']['area']['format'] = 'filtered_html';
   /* Relationship: Field: Referenced store */
-  $handler->display->display_options['relationships']['commerce_store_store_id']['id'] = 'commerce_store_store_id';
-  $handler->display->display_options['relationships']['commerce_store_store_id']['table'] = 'field_data_commerce_store';
-  $handler->display->display_options['relationships']['commerce_store_store_id']['field'] = 'commerce_store_store_id';
-  $handler->display->display_options['relationships']['commerce_store_store_id']['required'] = TRUE;
+  $handler->display->display_options['relationships']['commerce_store_target_id']['id'] = 'commerce_store_target_id';
+  $handler->display->display_options['relationships']['commerce_store_target_id']['table'] = 'field_data_commerce_store';
+  $handler->display->display_options['relationships']['commerce_store_target_id']['field'] = 'commerce_store_target_id';
+  $handler->display->display_options['relationships']['commerce_store_target_id']['required'] = TRUE;
   /* Relationship: Commerce Order: Owner */
   $handler->display->display_options['relationships']['uid']['id'] = 'uid';
   $handler->display->display_options['relationships']['uid']['table'] = 'commerce_order';
@@ -302,7 +302,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'commerce_store';
   $handler->display->display_options['fields']['title']['field'] = 'title';
-  $handler->display->display_options['fields']['title']['relationship'] = 'commerce_store_store_id';
+  $handler->display->display_options['fields']['title']['relationship'] = 'commerce_store_target_id';
   $handler->display->display_options['fields']['title']['label'] = 'Store';
   /* Field: User: Name */
   $handler->display->display_options['fields']['name']['id'] = 'name';
@@ -334,7 +334,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['arguments']['uid']['id'] = 'uid';
   $handler->display->display_options['arguments']['uid']['table'] = 'commerce_store';
   $handler->display->display_options['arguments']['uid']['field'] = 'uid';
-  $handler->display->display_options['arguments']['uid']['relationship'] = 'commerce_store_store_id';
+  $handler->display->display_options['arguments']['uid']['relationship'] = 'commerce_store_target_id';
   $handler->display->display_options['arguments']['uid']['default_action'] = 'not found';
   $handler->display->display_options['arguments']['uid']['default_argument_type'] = 'fixed';
   $handler->display->display_options['arguments']['uid']['summary']['number_of_records'] = '0';
@@ -378,7 +378,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['filters']['title']['id'] = 'title';
   $handler->display->display_options['filters']['title']['table'] = 'commerce_store';
   $handler->display->display_options['filters']['title']['field'] = 'title';
-  $handler->display->display_options['filters']['title']['relationship'] = 'commerce_store_store_id';
+  $handler->display->display_options['filters']['title']['relationship'] = 'commerce_store_target_id';
   $handler->display->display_options['filters']['title']['group'] = 1;
   $handler->display->display_options['filters']['title']['exposed'] = TRUE;
   $handler->display->display_options['filters']['title']['expose']['operator_id'] = 'title_op';
@@ -596,10 +596,10 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['empty']['area']['content'] = 'You don\'t have any products in any of your stores yet.';
   $handler->display->display_options['empty']['area']['format'] = 'filtered_html';
   /* Relationship: Field: Referenced store */
-  $handler->display->display_options['relationships']['commerce_store_store_id']['id'] = 'commerce_store_store_id';
-  $handler->display->display_options['relationships']['commerce_store_store_id']['table'] = 'field_data_commerce_store';
-  $handler->display->display_options['relationships']['commerce_store_store_id']['field'] = 'commerce_store_store_id';
-  $handler->display->display_options['relationships']['commerce_store_store_id']['required'] = TRUE;
+  $handler->display->display_options['relationships']['commerce_store_target_id']['id'] = 'commerce_store_target_id';
+  $handler->display->display_options['relationships']['commerce_store_target_id']['table'] = 'field_data_commerce_store';
+  $handler->display->display_options['relationships']['commerce_store_target_id']['field'] = 'commerce_store_target_id';
+  $handler->display->display_options['relationships']['commerce_store_target_id']['required'] = TRUE;
   /* Field: Commerce Product: SKU */
   $handler->display->display_options['fields']['sku']['id'] = 'sku';
   $handler->display->display_options['fields']['sku']['table'] = 'commerce_product';
@@ -620,7 +620,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['fields']['commerce_store']['id'] = 'commerce_store';
   $handler->display->display_options['fields']['commerce_store']['table'] = 'field_data_commerce_store';
   $handler->display->display_options['fields']['commerce_store']['field'] = 'commerce_store';
-  $handler->display->display_options['fields']['commerce_store']['type'] = 'commerce_store_reference_title_plain';
+  $handler->display->display_options['fields']['commerce_store']['type'] = 'entityreference_label';
   $handler->display->display_options['fields']['commerce_store']['settings'] = array(
     'field_formatter_extras_field_wrapper' => 'div',
     'field_formatter_extras_field_class' => '',
@@ -658,7 +658,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['arguments']['uid']['id'] = 'uid';
   $handler->display->display_options['arguments']['uid']['table'] = 'commerce_store';
   $handler->display->display_options['arguments']['uid']['field'] = 'uid';
-  $handler->display->display_options['arguments']['uid']['relationship'] = 'commerce_store_store_id';
+  $handler->display->display_options['arguments']['uid']['relationship'] = 'commerce_store_target_id';
   $handler->display->display_options['arguments']['uid']['default_action'] = 'not found';
   $handler->display->display_options['arguments']['uid']['default_argument_type'] = 'fixed';
   $handler->display->display_options['arguments']['uid']['summary']['number_of_records'] = '0';
@@ -700,7 +700,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['filters']['title_1']['id'] = 'title_1';
   $handler->display->display_options['filters']['title_1']['table'] = 'commerce_store';
   $handler->display->display_options['filters']['title_1']['field'] = 'title';
-  $handler->display->display_options['filters']['title_1']['relationship'] = 'commerce_store_store_id';
+  $handler->display->display_options['filters']['title_1']['relationship'] = 'commerce_store_target_id';
   $handler->display->display_options['filters']['title_1']['operator'] = 'contains';
   $handler->display->display_options['filters']['title_1']['exposed'] = TRUE;
   $handler->display->display_options['filters']['title_1']['expose']['operator_id'] = 'title_1_op';

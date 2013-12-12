@@ -203,6 +203,9 @@ function commerce_store_schema() {
  * Implements hook_install().
  */
 function commerce_store_install() {
+  // Configures selected entity types to reference a commerce store.
+  commerce_store_configure_referencing_entity_types();
+
   // Create new "merchant" role if it doesn't exist yet.
   if (!user_role_load_by_name(COMMERCE_STORE_MERCHANT)) {
     $merchant_role = (object) array(
@@ -243,9 +246,12 @@ function commerce_store_install() {
  * Implements hook_uninstall().
  */
 function commerce_store_uninstall() {
-  // Delete any field instance attached to a store type.
+  // Delete the field referencing a commerce store and all its instances.
   module_load_include('module', 'commerce');
   commerce_delete_instances('commerce_store');
-  // Delete "merchant" role.
+  commerce_delete_field('commerce_store');
+
+  // Delete the "merchant" user role.
+  module_load_include('module', 'commerce_store');
   user_role_delete(COMMERCE_STORE_MERCHANT);
 }

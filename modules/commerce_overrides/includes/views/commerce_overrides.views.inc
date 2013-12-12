@@ -21,7 +21,7 @@ function commerce_overrides_views_default_views_alter(&$views) {
         'id' => 'commerce_store',
         'table' => 'field_data_commerce_store',
         'field' => 'commerce_store',
-        'type' => 'commerce_store_reference_title_link',
+        'type' => 'entityreference_label',
       ),
     );
     // Find position where the field should be inserted
@@ -87,7 +87,7 @@ function commerce_overrides_views_default_views_alter(&$views) {
         'id' => 'commerce_store',
         'table' => 'field_data_commerce_store',
         'field' => 'commerce_store',
-        'type' => 'commerce_store_reference_title_link',
+        'type' => 'entityreference_label',
       ),
     );
     // Find position where the field should be inserted
@@ -119,7 +119,7 @@ function commerce_overrides_views_default_views_alter(&$views) {
         'id' => 'commerce_store',
         'table' => 'field_data_commerce_store',
         'field' => 'commerce_store',
-        'type' => 'commerce_store_reference_title_link',
+        'type' => 'entityreference_label',
       ),
     );
     // Find position where the field should be inserted

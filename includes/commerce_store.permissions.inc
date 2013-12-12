@@ -61,7 +61,7 @@ function commerce_store_commerce_entity_access($op, $entity, $account, $entity_t
   // Get all entity types that reference store entity.
   $store_referencing_entity_types = &drupal_static(__FUNCTION__);
   if (empty($store_referencing_entity_types)) {
-    $store_referencing_entity_types = array_keys(commerce_store_reference_referencing_entity_types());
+    $store_referencing_entity_types = array_keys(commerce_store_referencing_entity_types());
   }
   // If current entity references store entity, check the store owner, and allow
   // access if store owner is the same as current user.
