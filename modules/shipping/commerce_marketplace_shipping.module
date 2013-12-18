@@ -1,0 +1,101 @@
+<?php
+
+/**
+ * @file
+ * Adapts core shipping features for Commerce Marketplace.
+ */
+
+/**
+ * Implements hook_commerce_checkout_pane_info_alter().
+ *
+ * Move 'Shipping service' checkout pane provided by commerce_shipping module
+ * to 'Reviews' checkout page, so it is displayed there for each order from the
+ * order group, between 'Marketplace: Review' (weight 10) and 'Marketplace:
+ * Payment' (weight 30) panes.
+ */
+function commerce_marketplace_shipping_commerce_checkout_pane_info_alter(&$checkout_panes) {
+  $checkout_panes['commerce_shipping']['title'] = t('Marketplace: Shipping');
+  $checkout_panes['commerce_shipping']['page'] = 'reviews';
+  $checkout_panes['commerce_shipping']['weight'] = 20;
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function commerce_marketplace_shipping_form_alter(&$form, &$form_state, $form_id) {
+
+  if (strpos($form_id, 'commerce_checkout_form_reviews_') === 0) {
+    // Do not display shipping method selection form for orders that already have
+    // been paid.
+    $order_status = commerce_order_status_load($form_state['order']->status);
+    if (!$order_status['cart']) {
+      unset($form['commerce_shipping']);
+    }
+
+    // Add pane form wrappers so that we can update it via ajax callback
+    // (including Shopping cart contents view).
+    $wrapper_id = 'commerce-checkout-form-reviews-form-' . $form_state['order']->order_id;
+    $form['#prefix'] = '<div id="' . $wrapper_id . '">';
+    $form['#suffix'] = '</div>';
+
+    // Update default shipping method selection ajax callback to ours, so that
+    // we can update the whole pane content (including shipping costs in the
+    // Shopping cart contents view), not only shipping method selection radios.
+    if (!empty($form['commerce_shipping'])) {
+      $form['commerce_shipping']['shipping_service']['#ajax'] = array(
+        'callback' => 'commerce_marketplace_shipping_pane_service_details_refresh',
+        'wrapper' => $wrapper_id,
+      );
+    }
+
+    // Shipping service pane form was not submitted yet, but one of available
+    // services is always selected by default, so we need to add it to the order
+    // anyway, so it is shown in Shopping cart contents view above.
+    if (!isset($form_state['triggering_element']) && !empty($form['commerce_shipping'])) {
+      $selected_shipping_service = $form['commerce_shipping']['shipping_service']['#default_value'];
+      // Add shopping service to the current order.
+      $order = commerce_order_load($form_state['order']->order_id);
+      module_load_include('inc', 'commerce_shipping', 'commerce_shipping.rules');
+      commerce_shipping_rate_apply($order, $selected_shipping_service);
+      commerce_order_save($order);
+      $form_state['order'] = $order;
+      // Update Shopping cart contents view.
+      list($view_id, $display_id) = explode('|', variable_get('commerce_cart_contents_pane_view', 'commerce_cart_summary|default'));
+      if (!empty($view_id) && !empty($display_id)) {
+        $form['commerce_marketplace_review']['review']['#data']['cart_contents']['data'] = commerce_embed_view($view_id, $display_id, array($form_state['order']->order_id));
+      }
+    }
+
+    // If shipping method selection subform was submitted, update relevant order
+    // and Shopping cart contents view.
+    if (isset($form_state['triggering_element']) && $form_state['triggering_element']['#name'] == 'commerce_shipping[shipping_service]') {
+      // Update shipping service for the current order.
+      $checkout_pane_id = array('pane_id' => 'commerce_shipping');
+      $order = commerce_order_load($form_state['order']->order_id);
+      commerce_shipping_pane_checkout_form_submit($form, $form_state, $checkout_pane_id, $order);
+      commerce_order_save($order);
+      $form_state['order'] = $order;
+      // Update Shopping cart contents view.
+      list($view_id, $display_id) = explode('|', variable_get('commerce_cart_contents_pane_view', 'commerce_cart_summary|default'));
+      if (!empty($view_id) && !empty($display_id)) {
+        $form['commerce_marketplace_review']['review']['#data']['cart_contents']['data'] = commerce_embed_view($view_id, $display_id, array($form_state['order']->order_id));
+      }
+    }
+  }
+
+}
+
+/**
+ * Ajax callback: Returns the shipping details form elements that match the
+ * currently selected shipping service.
+ *
+ * Overrides commerce_shipping_pane_service_details_refresh(), returns the whole
+ * pane content (including shipping costs in the Shopping cart contents view),
+ * not only shipping method selection radios.
+ *
+ * @see commerce_marketplace_shipping_form_commerce_checkout_form_reviews_alter()
+ * @see commerce_shipping_pane_service_details_refresh()
+ */
+function commerce_marketplace_shipping_pane_service_details_refresh($form, $form_state) {
+  return $form;
+}

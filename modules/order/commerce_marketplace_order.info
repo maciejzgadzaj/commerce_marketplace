@@ -1,0 +1,9 @@
+name = Order
+description = Adapts core order features for Commerce Marketplace.
+package = Commerce Marketplace
+dependencies[] = commerce_marketplace
+dependencies[] = commerce_order
+core = 7.x
+
+; Views handlers
+files[] = includes/views/handlers/commerce_marketplace_order_handler_area_order_total.inc

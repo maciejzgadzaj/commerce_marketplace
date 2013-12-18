@@ -1,6 +1,0 @@
-name = Commerce Store Payment
-description = Implements payment features for Commerce Store.
-core = 7.x
-package = Commerce Marketplace
-dependencies[] = commerce_store
-dependencies[] = commerce_payment

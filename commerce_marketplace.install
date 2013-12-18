@@ -1,0 +1,54 @@
+<?php
+
+/**
+ * @file
+ * Installation callbacks for Commerce Marketplace module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function commerce_marketplace_install() {
+  module_load_include('module', 'commerce');
+
+  // Configures selected entity types to reference a commerce store.
+  commerce_marketplace_configure_referencing_entity_types();
+
+  // Create new "merchant" role if it doesn't exist yet.
+  if (!user_role_load_by_name(COMMERCE_MARKETPLACE_MERCHANT)) {
+    $merchant_role = (object) array(
+      'name' => COMMERCE_MARKETPLACE_MERCHANT,
+      'weight' => 1,
+    );
+    user_role_save($merchant_role);
+
+    // Grant required permissions to new "merchant" role.
+    user_role_grant_permissions($merchant_role->rid, array(
+      'view own commerce_store entities',
+      'edit own commerce_store entities',
+      'view any commerce_product entity in own store',
+      'edit any commerce_product entity in own store',
+      'view any commerce_order entity in own store',
+      'edit any commerce_order entity in own store',
+    ));
+
+    drupal_set_message(t('New %merchant role was added and required store-related user permissions were granted to this role. It is advised to review them on the <a href="@permissions_user">Permissions page</a>.', array(
+      '@permissions_user' => url('admin/people/permissions', array('fragment' => 'module-commerce_store')),
+      '%merchant' => COMMERCE_MARKETPLACE_MERCHANT,
+    )));
+  }
+}
+
+/*
+ * Implements hook_uninstall().
+ */
+function commerce_marketplace_uninstall() {
+  // Delete the field referencing a commerce store and all its instances.
+  module_load_include('module', 'commerce');
+  commerce_delete_instances('commerce_store');
+  commerce_delete_field('commerce_store');
+
+  // Delete the "merchant" user role.
+  module_load_include('module', 'commerce_store');
+  user_role_delete(COMMERCE_MARKETPLACE_MERCHANT);
+}

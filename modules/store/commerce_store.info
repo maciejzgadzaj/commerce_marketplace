@@ -1,0 +1,12 @@
+name = Store
+description = Defines the Commerce Store entity type and associated features.
+core = 7.x
+package = Commerce Marketplace
+dependencies[] = commerce
+dependencies[] = entityreference
+
+; Module includes
+files[] = includes/commerce_store.controller.inc
+
+; Translation handler
+files[] = includes/commerce_store.translation_handler.inc

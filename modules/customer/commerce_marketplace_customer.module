@@ -1,0 +1,55 @@
+<?php
+
+/**
+ * @file
+ * Adapts core customer features for Commerce Marketplace.
+ */
+
+/**
+ * Implements hook_commerce_checkout_pane_info_alter().
+ */
+function commerce_marketplace_customer_commerce_checkout_pane_info_alter(&$checkout_panes) {
+  // Override all customer profile pane form submits to add provided customer
+  // information to all orders.
+  foreach (commerce_customer_profile_types() as $type => $profile_type) {
+    $checkout_panes['customer_profile_' . $type]['callbacks']['checkout_form_submit'] = 'commerce_marketplace_customer_profile_pane_checkout_form_submit';
+  }
+}
+
+/**
+ * Checkout pane callback: submits a customer profile edit form.
+ *
+ * Overrides commerce_customer_profile_pane_checkout_form_submit(),
+ * so that customer profile(s) are added to all orders in the order group.
+ *
+ * @see commerce_customer_profile_pane_checkout_form_submit()
+ */
+function commerce_marketplace_customer_profile_pane_checkout_form_submit($form, &$form_state, $checkout_pane, $order) {
+  global $user;
+
+  // Start with normal callback.
+  commerce_customer_profile_pane_checkout_form_submit($form, $form_state, $checkout_pane, $order);
+
+  // If there are more orders in the order group, we need to update them too.
+  $orders = commerce_marketplace_cart_order_load_multiple($user->uid);
+  if (count($orders) > 1) {
+
+    // Customer profile should be already created at this stage, so we can
+    // get profile_id value from the already updated order.
+    $wrapper = entity_metadata_wrapper('commerce_order', $order);
+    if ($field_name = variable_get('commerce_' . $checkout_pane['pane_id'] . '_field', '')) {
+      $profile_id = $wrapper->$field_name->value()->profile_id;
+    }
+    else {
+      $profile_id = $order->data['profiles'][$checkout_pane['pane_id']];
+    }
+    $form_state['values'][$checkout_pane['pane_id']]['customer_profile']->profile_id = $profile_id;
+
+    // Call submit callback for all remaining orders too.
+    foreach ($orders as $group_order) {
+      if ($group_order->order_id != $order->order_id) {
+        commerce_customer_profile_pane_checkout_form_submit($form, $form_state, $checkout_pane, $group_order);
+      }
+    }
+  }
+}

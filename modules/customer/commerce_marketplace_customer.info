@@ -1,0 +1,7 @@
+name = Customer
+description = Adapts core customer features for Commerce Marketplace.
+package = Commerce Marketplace
+dependencies[] = commerce_marketplace
+dependencies[] = commerce_marketplace_cart
+dependencies[] = commerce_customer
+core = 7.x

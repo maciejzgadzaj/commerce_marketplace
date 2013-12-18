@@ -1,0 +1,7 @@
+name = Shipping
+description = Adapts core shipping features for Commerce Marketplace.
+package = Commerce Marketplace
+dependencies[] = commerce_store
+dependencies[] = commerce_shipping
+dependencies[] = commerce_marketplace_payment
+core = 7.x

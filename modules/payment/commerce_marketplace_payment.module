@@ -1,0 +1,246 @@
+<?php
+
+/**
+ * @file
+ * Adapts core shipping features for Commerce Marketplace.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function commerce_marketplace_payment_menu() {
+  $items = array();
+
+  $items['admin/commerce/stores/%commerce_store/payment_methods'] = array(
+    'title' => 'Payment methods',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'commerce_marketplace_payment_methods_overview',
+    'page arguments' => array(3),
+    'access callback' => 'commerce_store_access',
+    'access arguments' => array('update', 3),
+    'weight' => 0,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+    'file' => 'includes/commerce_marketplace_payment.admin.inc',
+  );
+
+  foreach (commerce_marketplace_payment_enabled_methods() as $method_id => $payment_method) {
+    $items['admin/commerce/stores/%commerce_store/payment_methods/' . $method_id] = array(
+      'title' => $payment_method['title'],
+      'type' => MENU_LOCAL_TASK,
+      'page callback' => 'commerce_marketplace_payment_method_form_wrapper',
+      'page arguments' => array(3, 5),
+      'access callback' => 'commerce_store_access',
+      'access arguments' => array('update', 3),
+      'weight' => 0,
+      'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+      'file' => 'includes/commerce_marketplace_payment.admin.inc',
+    );
+  }
+
+  return $items;
+}
+
+/**
+ * Implements hook_commerce_checkout_page_info().
+ */
+function commerce_marketplace_payment_commerce_checkout_page_info() {
+  $checkout_pages = array();
+
+  $checkout_pages['reviews'] = array(
+    'name' => t('Marketplace review'),
+    'title' => t('Review orders'),
+    'help' => t(variable_get('commerce_marketplace_payment_pane_help', 'Review your order before continuing.')),
+    'weight' => 15,
+    'status_cart' => TRUE,
+    'submit_value' => t(variable_get('commerce_marketplace_payment_pane_pay_label', 'Pay for this order')),
+  );
+
+  return $checkout_pages;
+}
+
+/**
+ * Implements hook_commerce_checkout_pane_info().
+ *
+ * @see commerce_payment_commerce_checkout_pane_info()
+ */
+function commerce_marketplace_payment_commerce_checkout_pane_info() {
+  $checkout_panes = array();
+
+  $checkout_panes['commerce_marketplace_review'] = array(
+    'title' => t('Marketplace: Review'),
+    'file' => 'includes/commerce_marketplace_payment.checkout_pane.inc',
+    'base' => 'commerce_marketplace_review_pane',
+    'page' => 'reviews',
+    'fieldset' => FALSE,
+    'weight' => 10,
+  );
+
+  $checkout_panes['commerce_marketplace_payment'] = array(
+    'title' => t('Payment'),
+    'name' => t('Marketplace: Payment'),
+    'page' => 'reviews',
+    'file' => 'includes/commerce_marketplace_payment.checkout_pane.inc',
+    'base' => 'commerce_marketplace_payment_pane',
+    'weight' => 30,
+  );
+
+  $checkout_panes['commerce_marketplace_payment_redirect'] = array(
+    'title' => t('Marketplace: Off-site payment redirect'),
+    'page' => 'payment',
+    'locked' => TRUE,
+    'file' => 'includes/commerce_marketplace_payment.checkout_pane.inc',
+    'base' => 'commerce_marketplace_payment_redirect_pane',
+  );
+
+  return $checkout_panes;
+}
+
+/**
+ * Implements hook_commerce_checkout_pane_info_alter().
+ *
+ * Disabled default commerce_payment module panes: commerce_payment and
+ * commerce_payment_redirect, which are replaced by commerce_marketplace_payment
+ * and commerce_marketplace_payment_redirect.
+ *
+ * @see commerce_marketplace_payment_commerce_checkout_pane_info()
+ */
+function commerce_marketplace_payment_commerce_checkout_pane_info_alter(&$checkout_panes) {
+  $checkout_panes['commerce_payment']['page'] = 'disabled';
+  $checkout_panes['commerce_payment_redirect']['page'] = 'disabled';
+}
+
+/**
+ * Returns definitions of all payment methods enabled site-wide.
+ */
+function commerce_marketplace_payment_enabled_methods() {
+  // Get all payment method definitions.
+  $payment_method_definitions = commerce_payment_methods();
+
+  // Create a dummy order and invoke the payment methods event that will
+  // populate it with an array of method IDs for available payment methods.
+  $order = (object) array('payment_methods' => array());
+  rules_invoke_all('commerce_payment_methods', $order);
+
+  // Return only enabled payment method definitions.
+  $enabled_payment_methods = array();
+  foreach ($order->payment_methods as $payment_method) {
+    $method_id = $payment_method['method_id'];
+    $enabled_payment_methods[$method_id] = $payment_method_definitions[$method_id];
+  }
+
+  return $enabled_payment_methods;
+}
+
+/**
+ * Implements hook_query_TAG_alter().
+ *
+ * This actually is almost an exact copy of
+ * commerce_payment_query_commerce_payment_transaction_access_alter(), needed
+ * because we need to join with "commerce_store" table BEFORE calling
+ * commerce_entity_access_query_alter() function.
+ * For the same reason we needed to set commerce_marketplace_payment module weight
+ * to -1, so this hook_query_TAG_alter() implementation is called before that
+ * one from commerce_payment module
+ * (commerce_payment_query_commerce_payment_transaction_access_alter()).
+ */
+function commerce_marketplace_payment_query_commerce_payment_transaction_access_alter(QueryAlterableInterface $query) {
+  // Read the meta-data from the query.
+  if (!$account = $query->getMetaData('account')) {
+    global $user;
+    $account = $user;
+  }
+
+  // If the user has the administration permission, nothing to do.
+  if (user_access('administer payments', $account)) {
+    return;
+  }
+
+  // Join the payment transaction to their orders.
+  if (user_access('view payments', $account)) {
+    $tables = &$query->getTables();
+
+    // Look for an existing commerce_order table.
+    foreach ($tables as $table) {
+      if ($table['table'] === 'commerce_order') {
+        $order_alias = $table['alias'];
+        break;
+      }
+    }
+
+    // If not found, attempt a join against the first table.
+    if (!isset($order_alias)) {
+      reset($tables);
+      $base_table = key($tables);
+      $query->innerJoin('commerce_order', 'commerce_order', '%alias.order_id = ' . $base_table . '.order_id');
+    }
+
+    // Make sure a join with commerce_store table is added to the query.
+    commerce_store_entity_access_query_alter($query, 'commerce_order', 'commerce_order');
+  }
+  else {
+    // The user has access to no payment transaction.
+    $query->where('1 = 0');
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for commerce_store_ui_store_form().
+ *
+ * @see commerce_store_ui_store_form()
+ */
+function commerce_marketplace_payment_form_commerce_store_ui_store_form_alter(&$form, &$form_state) {
+  $store = $form_state['build_info']['args'][0];
+
+  $form['payment_methods'] = array(
+    '#type' => 'fieldset',
+    '#access' => user_access('administer stores'),
+    '#title' => t('Payment methods'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#group' => 'additional_settings',
+    '#attributes' => array(
+      'class' => array('store-form-payment-methods'),
+    ),
+    '#attached' => array(
+      'js' => array(
+        drupal_get_path('module', 'commerce_marketplace_payment') . '/commerce_marketplace_payment.js',
+      ),
+    ),
+    '#weight' => 30,
+  );
+  foreach (commerce_marketplace_payment_enabled_methods() as $method_id => $payment_method) {
+    $form['payment_methods']['enabled'][$method_id] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable %method payment method', array('%method' => $payment_method['title'])),
+      '#tree' => TRUE,
+      '#attributes' => array('title' => $payment_method['title']),
+      '#default_value' => !empty($store->data['payment_methods']['enabled'][$method_id]),
+    );
+  }
+
+  array_unshift($form['actions']['submit']['#submit'], 'commerce_marketplace_payment_commerce_store_form_submit');
+}
+
+/**
+ * Form submission handler for commerce_store_ui_store_form().
+ *
+ * @see commerce_marketplace_payment_form_commerce_store_ui_store_form_alter()
+ */
+function commerce_marketplace_payment_commerce_store_form_submit($form, &$form_state) {
+  $store = &$form_state['build_info']['args'][0];
+
+  $store->data['payment_methods']['enabled'] = $form_state['values']['payment_methods']['enabled'];
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function commerce_marketplace_payment_form_alter(&$form, &$form_state, $form_id) {
+  if (strpos($form_id, 'commerce_checkout_form_reviews_') === 0) {
+    // Add pane form wrappers so that we can update it via ajax callback
+    // (including Shopping cart contents view).
+    $wrapper_id = 'commerce-checkout-form-reviews-form-' . $form_state['order']->order_id;
+    $form['#prefix'] = '<div id="' . $wrapper_id . '">';
+    $form['#suffix'] = '</div>';
+  }
+}

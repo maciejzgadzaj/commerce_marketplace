@@ -1,0 +1,9 @@
+name = Line Item
+description = Adapts core line item features for Commerce Marketplace.
+package = Commerce Marketplace
+dependencies[] = commerce_marketplace
+dependencies[] = commerce_line_item
+core = 7.x
+
+; Views handlers
+files[] = includes/views/handlers/commerce_marketplace_line_item_handler_field_edit_delete.inc

@@ -1,0 +1,8 @@
+name = Payment
+description = Adapts core payment features for Commerce Marketplace.
+core = 7.x
+package = Commerce Marketplace
+dependencies[] = commerce_store
+dependencies[] = commerce_marketplace
+dependencies[] = commerce_marketplace_checkout
+dependencies[] = commerce_payment

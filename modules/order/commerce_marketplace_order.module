@@ -1,0 +1,142 @@
+<?php
+
+/**
+ * @file
+ * Adapts core order features for Commerce Marketplace.
+ */
+
+/**
+ * Implements hook_views_api().
+ */
+function commerce_marketplace_order_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'commerce_marketplace_order') . '/includes/views',
+  );
+}
+
+/**
+ * Implements hook_views_data_alter().
+ */
+function commerce_marketplace_order_views_data_alter(&$data) {
+  $data['commerce_order']['order_total']['area']['handler'] = 'commerce_marketplace_order_handler_area_order_total';
+
+  // Expose the order group ID.
+  $data['commerce_order']['order_group'] = array(
+    'title' => t('Order group ID', array(), array('context' => 'a drupal commerce order')),
+    'help' => t('The unique internal identifier of the order group.'),
+    'field' => array(
+      'handler' => 'commerce_order_handler_field_order',
+      'click sortable' => TRUE,
+    ),
+    'filter' => array(
+      'handler' => 'views_handler_filter_numeric',
+    ),
+    'sort' => array(
+      'handler' => 'views_handler_sort',
+    ),
+    'argument' => array(
+      // TODO: why would we need to override it?
+      'handler' => 'views_handler_argument_numeric',
+      'name field' => 'order_number',
+      'numeric' => TRUE,
+      'validate type' => 'order_id',
+    ),
+  );
+}
+
+/**
+ * Returns all orders from one order group.
+ */
+function commerce_marketplace_order_group_load($order_group) {
+  return !empty($order_group) ? commerce_order_load_multiple(NULL, array('order_group' => array($order_group))) : array();
+}
+
+/**
+ * Overrides commerce_order_calculate_total().
+ *
+ * Calculates the order total, updating the commerce_order_total field data in
+ * the order object this function receives.
+ */
+function commerce_marketplace_order_calculate_total($orders) {
+  // First determine the currency to use for the order total.
+  $currency_code = commerce_default_currency();
+  $currencies = array();
+
+  foreach ($orders as $key => $order) {
+    $order_wrappers[$key] = entity_metadata_wrapper('commerce_order', $order);
+
+    // Populate an array of how many line items on the order use each currency.
+    foreach ($order_wrappers[$key]->commerce_line_items as $delta => $line_item_wrapper) {
+      $line_item_currency_code = $line_item_wrapper->commerce_total->currency_code->value();
+
+      if (!in_array($line_item_currency_code, array_keys($currencies))) {
+        $currencies[$line_item_currency_code] = 1;
+      }
+      else {
+        $currencies[$line_item_currency_code]++;
+      }
+    }
+
+  }
+  reset($currencies);
+
+  // If only one currency is present on the order, use that to calculate the
+  // order total.
+  if (count($currencies) == 1) {
+    $currency_code = key($currencies);
+  }
+  elseif (in_array(commerce_default_currency(), array_keys($currencies))) {
+    // Otherwise use the site default currency if it's in the order.
+    $currency_code = commerce_default_currency();
+  }
+  elseif (count($currencies) > 1) {
+    // Otherwise use the first currency on the order. We do this instead of
+    // trying to determine the most dominant currency for now because using the
+    // first currency leaves the option open for a UI based module to let
+    // customers reorder the items in the cart by currency to get the order
+    // total in a different currency. The currencies array still contains useful
+    // data, though, should we decide to expand on the count by currency approach.
+    $currency_code = key($currencies);
+  }
+
+  // Initialize the order total with the selected currency.
+  $total = array(
+    'amount' => 0,
+    'currency_code' => $currency_code,
+    'data' => array(),
+  );
+
+  // Then loop over each line item in each order
+  // and add its total to the order total.
+  foreach ($order_wrappers as $key => $order_wrapper) {
+    foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+      // Convert the line item's total to the order's currency for totalling.
+      $component_total = commerce_price_component_total($line_item_wrapper->commerce_total->value());
+
+      // Add the totals.
+      $total['amount'] += commerce_currency_convert(
+        $component_total['amount'],
+        $component_total['currency_code'],
+        $currency_code
+      );
+
+      // Combine the line item total's component prices into the order total.
+      $total['data'] = commerce_price_components_combine($total, $line_item_wrapper->commerce_total->value());
+    }
+  }
+
+  return $total;
+}
+
+/**
+ * Returns the total quantity of an array of line items in all orders.
+ */
+function commerce_marketplace_order_quantity($orders) {
+  $quantity = 0;
+  foreach ($orders as $key => $order) {
+    $wrapper = entity_metadata_wrapper('commerce_order', $order);
+    $quantity += commerce_line_items_quantity($wrapper->commerce_line_items, commerce_product_line_item_types());
+  }
+  return $quantity;
+}

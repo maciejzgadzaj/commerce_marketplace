@@ -1,0 +1,6 @@
+name = Product
+description = Adapts core product features for Commerce Marketplace.
+package = Commerce Marketplace
+dependencies[] = commerce_product
+dependencies[] = commerce_marketplace
+core = 7.x

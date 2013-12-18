@@ -1,0 +1,16 @@
+<?php
+
+/**
+ * @file
+ * Adapts core line item features for Commerce Marketplace.
+ */
+
+/**
+ * Implements hook_views_api().
+ */
+function commerce_marketplace_line_item_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'commerce_marketplace_line_item') . '/includes/views',
+  );
+}
