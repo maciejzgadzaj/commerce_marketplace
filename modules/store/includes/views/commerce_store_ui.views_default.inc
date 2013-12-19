@@ -30,7 +30,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['title'] = 'Stores';
   $handler->display->display_options['use_more_always'] = FALSE;
   $handler->display->display_options['access']['type'] = 'perm';
-  $handler->display->display_options['access']['perm'] = 'administer commerce_store entities';
+  $handler->display->display_options['access']['perm'] = 'view any commerce_store entity';
   $handler->display->display_options['cache']['type'] = 'none';
   $handler->display->display_options['query']['type'] = 'views_query';
   $handler->display->display_options['exposed_form']['type'] = 'basic';
