@@ -165,7 +165,7 @@ function commerce_marketplace_checkout_forms($form_id, $args) {
  * 'complete' page, let's first check if we don't have any other orders in the
  * order group that should be first checked out.
  *
- * @see commerce_overrides_checkout_router()
+ * @see commerce_marketplace_checkout_router()
  */
 function commerce_marketplace_checkout_commerce_checkout_router($order, $checkout_page) {
   $order_status = commerce_order_status_load($order->status);
@@ -279,7 +279,7 @@ function commerce_marketplace_checkout_form_alter(&$form, &$form_state, $form_id
  * Overrides commerce_checkout_line_item_views_form_submit(), updating order
  * status for all order in the order group.
  *
- * @see commerce_overrides_form_alter()
+ * @see commerce_marketplace_checkout_form_alter()
  * @see commerce_checkout_line_item_views_form_submit()
  */
 function commerce_marketplace_checkout_line_item_views_form_submit($form, &$form_state) {
@@ -371,7 +371,7 @@ function commerce_marketplace_checkout_commerce_checkout_pane_info_alter(&$check
  * of the shopping cart for all orders in the order group.
  *
  * @see commerce_cart_contents_pane_checkout_form()
- * @see commerce_overrides_commerce_checkout_pane_info_alter()
+ * @see commerce_marketplace_checkout_commerce_checkout_pane_info_alter()
  */
 function commerce_marketplace_cart_contents_pane_checkout_form($form, &$form_state, $checkout_pane, $order) {
   global $user;
@@ -402,7 +402,7 @@ function commerce_marketplace_cart_contents_pane_checkout_form($form, &$form_sta
  * completely then and changing the title somewhere else? @TODO?
  *
  * @see commerce_cart_contents_pane_review()
- * @see commerce_overrides_commerce_checkout_pane_info_alter()
+ * @see commerce_marketplace_checkout_commerce_checkout_pane_info_alter()
  */
 function commerce_marketplace_cart_contents_pane_review($form, $form_state, $checkout_pane, $order) {
   global $user;

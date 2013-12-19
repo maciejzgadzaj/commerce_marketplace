@@ -46,6 +46,38 @@ function commerce_marketplace_order_views_data_alter(&$data) {
 }
 
 /**
+ * Implements hook_commerce_entity_access_condition_ENTITY_TYPE_alter().
+ *
+ * This alter hook allows the Store module to add conditions to the query used
+ * to determine if a user has view access to a given order. The Store module
+ * will always grant users access to view orders made in stores they own
+ * (independent of any permission settings).
+ */
+function commerce_marketplace_order_commerce_entity_access_condition_commerce_order_alter(&$conditions, $context) {
+  // First, start with "Shopping cart" and "Checkout" views - need to override
+  // commerce_cart_commerce_entity_access_condition_commerce_order_alter()
+  // to make sure that user is granted access to all their orders, not only the
+  // last one.
+  $current_order_ids = commerce_marketplace_cart_order_ids($context['account']->uid);
+  // Always give the current user access to their own carts regardless of order
+  // view permissions.
+  if (!empty($current_order_ids)) {
+    $conditions->condition($context['base_table'] . '.order_id', $current_order_ids, 'IN');
+  }
+
+  // Next, make sure that a merchant (a user which owns at least one store) has
+  // access to all orders made in their store by other users. This is used for
+  // "Merchant orders" view in user profile (/user/%/merchant/orders).
+  if (user_access('view any ' . $context['entity_type'] . ' entity in own store', $context['account'])) {
+    // Actually this condition already is in the query, but we need to add
+    // something to avoid commerce_entity_access_query_alter() adding default
+    // "where('1 = 0')" condition if no other conditions are defined.
+    $conditions->condition('commerce_store_field_data_commerce_store.uid', $context['account']->uid, '=');
+  }
+  // TODO: add access check for specific order types.
+}
+
+/**
  * Returns all orders from one order group.
  */
 function commerce_marketplace_order_group_load($order_group) {
