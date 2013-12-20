@@ -16,7 +16,6 @@
 function commerce_marketplace_shipping_commerce_checkout_pane_info_alter(&$checkout_panes) {
   $checkout_panes['commerce_shipping']['title'] = t('Marketplace: Shipping');
   $checkout_panes['commerce_shipping']['page'] = 'reviews';
-  $checkout_panes['commerce_shipping']['weight'] = 20;
 }
 
 /**
