@@ -6,11 +6,6 @@
  */
 
 /**
- * Merchant role name.
- */
-define('COMMERCE_MARKETPLACE_MERCHANT', 'merchant');
-
-/**
  * Implements hook_commerce_entity_access().
  */
 function commerce_marketplace_commerce_entity_access($op, $entity, $account, $entity_type) {

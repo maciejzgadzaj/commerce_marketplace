@@ -16,7 +16,9 @@ function commerce_store_permission() {
 
   // Extra permissions for products and orders in own store(s).
   foreach (array('commerce_product', 'commerce_order') as $entity_type) {
-    $permissions += commerce_store_entity_access_permissions($entity_type);
+    if (module_exists($entity_type)) {
+      $permissions += commerce_store_entity_access_permissions($entity_type);
+    }
   }
 
   return $permissions;

@@ -8,7 +8,7 @@
  * Implements hook_views_default_views().
  */
 function commerce_marketplace_product_views_default_views() {
-  $merchant_role = user_role_load_by_name(COMMERCE_MARKETPLACE_MERCHANT);
+  $merchant_role = user_role_load_by_name(COMMERCE_STORE_MERCHANT);
   $views = array();
 
   /**

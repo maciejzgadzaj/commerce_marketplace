@@ -8,6 +8,11 @@
  */
 
 /**
+ * Merchant role name.
+ */
+define('COMMERCE_STORE_MERCHANT', 'merchant');
+
+/**
  * Include permission handling file.
  */
 require_once 'includes/commerce_store.permissions.inc';
