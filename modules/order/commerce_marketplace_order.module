@@ -46,6 +46,40 @@ function commerce_marketplace_order_views_data_alter(&$data) {
 }
 
 /**
+ * Implements hook_commerce_checkout_pane_info_alter().
+ */
+function commerce_marketplace_order_commerce_checkout_pane_info_alter(&$checkout_panes) {
+  $checkout_panes['account']['callbacks']['checkout_form_submit'] = 'commerce_marketplace_order_account_pane_checkout_form_submit';
+}
+
+/**
+ * Account pane: checkout form submission callback.
+ *
+ * Overrides commerce_marketplace_order_account_pane_checkout_form_submit() to
+ * add submitted email address to all orders in the order group.
+ *
+ * @see commerce_marketplace_order_commerce_checkout_pane_info_alter()
+ * @see commerce_order_account_pane_checkout_form_submit()
+ */
+function commerce_marketplace_order_account_pane_checkout_form_submit($form, &$form_state, $checkout_pane, $order) {
+  $orders = commerce_marketplace_order_group_load($order->order_group);
+  foreach ($orders as $group_order) {
+    // We need this funny double-way call to
+    // commerce_order_account_pane_checkout_form_submit(), as if we were calling
+    // it with $group_order each time, the main $order object wouldn't get
+    // updated with the email address, and it wouldn't be available for the
+    // other panes afterwards.
+    if ($group_order->order_id == $order->order_id) {
+      commerce_order_account_pane_checkout_form_submit($form, $form_state, $checkout_pane, $order);
+    }
+    else {
+      commerce_order_account_pane_checkout_form_submit($form, $form_state, $checkout_pane, $group_order);
+      commerce_order_save($group_order);
+    }
+  }
+}
+
+/**
  * Implements hook_commerce_entity_access_condition_ENTITY_TYPE_alter().
  *
  * This alter hook allows the Store module to add conditions to the query used
