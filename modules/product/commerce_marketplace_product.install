@@ -1,0 +1,26 @@
+<?php
+
+/**
+ * @file
+ * Installation callbacks for Commerce Marketplace Product module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function commerce_marketplace_product_install() {
+  module_load_include('module', 'commerce_store');
+  if ($merchant_role = user_role_load_by_name(COMMERCE_STORE_MERCHANT)) {
+
+    // Grant required permissions to the "merchant" role.
+    user_role_grant_permissions($merchant_role->rid, array(
+      'view any commerce_product entity in own store',
+      'edit any commerce_product entity in own store',
+    ));
+
+    drupal_set_message(t('Product-related permissions were granted to the %merchant role. It is advised to review them on the <a href="@permissions_user">Permissions page</a>.', array(
+      '@permissions_user' => url('admin/people/permissions', array('fragment' => 'module-commerce_product')),
+      '%merchant' => COMMERCE_STORE_MERCHANT,
+    )));
+  }
+}

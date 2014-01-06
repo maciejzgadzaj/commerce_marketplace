@@ -487,6 +487,15 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
   commerce_store_save($store);
   drupal_set_message(t('Store saved.'));
 
+  // Add "merchant" role to user owning the store.
+  if ($merchant_role = user_role_load_by_name(COMMERCE_STORE_MERCHANT)) {
+    if (empty($account->roles[$merchant_role->rid])) {
+      $edit = array('roles' => $account->roles);
+      $edit['roles'][$merchant_role->rid] = $merchant_role->name;
+      user_save($account, $edit);
+    }
+  }
+
   // TODO: Do we want to remove "merchant" role from previous store owner?
   // When store owner is being changed, it might happen that previous store
   // owner (which we have stored in $form_state['commerce_store']) no longer
