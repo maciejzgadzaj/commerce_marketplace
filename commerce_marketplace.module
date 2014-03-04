@@ -6,6 +6,26 @@
  */
 
 /**
+ * Implements hook_menu().
+ */
+function commerce_marketplace_menu() {
+  $items = array();
+
+  $items['admin/commerce/marketplace'] = array(
+    'title' => 'Marketplace',
+    'description' => 'Configure Marketplace settings for your store.',
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 50,
+    'file path' => drupal_get_path('module', 'system'),
+    'file' => 'system.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
  * Implements hook_commerce_entity_access().
  */
 function commerce_marketplace_commerce_entity_access($op, $entity, $account, $entity_type) {

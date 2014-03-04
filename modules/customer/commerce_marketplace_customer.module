@@ -32,7 +32,7 @@ function commerce_marketplace_customer_profile_pane_checkout_form_submit($form, 
 
   // If there are more orders in the order group, we need to update them too.
   $orders = commerce_marketplace_cart_order_load_multiple($user->uid);
-  if (count($orders) > 1) {
+  if (commerce_marketplace_order_count($orders) > 1) {
 
     // Customer profile should be already created at this stage, so we can
     // get profile_id value from the already updated order.
