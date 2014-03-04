@@ -1,0 +1,5 @@
+name = Chained Payment Method Example
+description = Provides an example chained payment method for marketplace testing and development.
+package = Commerce Marketplace
+dependencies[] = commerce_marketplace_payment
+core = 7.x
