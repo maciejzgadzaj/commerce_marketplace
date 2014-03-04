@@ -1,6 +1,26 @@
 <?php
 
 /**
+ * Form constructor for marketplace settings page.
+ */
+function commerce_marketplace_payment_settings_form($form, &$form_state) {
+
+  $options = array(
+    'main_store' => t('main store'),
+    'merchants' => t('merchants'),
+  );
+  $form['commerce_store_payment_mode'] = array(
+    '#type' => 'select',
+    '#title' => t('Send payments to'),
+    '#description' => t('Select how payments for marketplace orders (orders from multiple stores) should be handled. <em>Merchants</em> will try to send payments directly to relevant merchants (assuming they all have the same payment method supporting parallel payments enabled). <em>Main store</em> will send the payment to the marketplace owner, allowing for processing it manually later.'),
+    '#options' => $options,
+    '#default_value' => variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
  * Page callback: Displays list of payment methods available for a store.
  *
  * @param $store

@@ -6,10 +6,24 @@
  */
 
 /**
+ * Default mode for sending marketplace payments.
+ */
+define('COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE', 'merchants');
+
+/**
  * Implements hook_menu().
  */
 function commerce_marketplace_payment_menu() {
   $items = array();
+
+  $items['admin/commerce/marketplace/payment'] = array(
+    'title' => 'Payments',
+    'description' => 'Commerce marketplace payment settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_marketplace_payment_settings_form'),
+    'access arguments' => array('configure store'),
+    'file' => 'includes/commerce_marketplace_payment.admin.inc',
+  );
 
   $items['admin/commerce/stores/%commerce_store/payment_methods'] = array(
     'title' => 'Payment methods',
@@ -70,7 +84,7 @@ function commerce_marketplace_payment_commerce_checkout_pane_info() {
     'title' => t('Marketplace: Review'),
     'file' => 'includes/commerce_marketplace_payment.checkout_pane.inc',
     'base' => 'commerce_marketplace_review_pane',
-    'page' => 'reviews',
+    'page' => 'disabled',
     'fieldset' => FALSE,
     'weight' => 1,
   );
@@ -78,7 +92,7 @@ function commerce_marketplace_payment_commerce_checkout_pane_info() {
   $checkout_panes['commerce_marketplace_payment'] = array(
     'title' => t('Payment'),
     'name' => t('Marketplace: Payment'),
-    'page' => 'reviews',
+    'page' => 'disabled',
     'file' => 'includes/commerce_marketplace_payment.checkout_pane.inc',
     'base' => 'commerce_marketplace_payment_pane',
     'weight' => 3,
@@ -86,7 +100,7 @@ function commerce_marketplace_payment_commerce_checkout_pane_info() {
 
   $checkout_panes['commerce_marketplace_payment_redirect'] = array(
     'title' => t('Marketplace: Off-site payment redirect'),
-    'page' => 'payment',
+    'page' => 'disabled',
     'locked' => TRUE,
     'file' => 'includes/commerce_marketplace_payment.checkout_pane.inc',
     'base' => 'commerce_marketplace_payment_redirect_pane',
@@ -98,15 +112,101 @@ function commerce_marketplace_payment_commerce_checkout_pane_info() {
 /**
  * Implements hook_commerce_checkout_pane_info_alter().
  *
- * Disabled default commerce_payment module panes: commerce_payment and
- * commerce_payment_redirect, which are replaced by commerce_marketplace_payment
- * and commerce_marketplace_payment_redirect.
- *
  * @see commerce_marketplace_payment_commerce_checkout_pane_info()
  */
 function commerce_marketplace_payment_commerce_checkout_pane_info_alter(&$checkout_panes) {
-  $checkout_panes['commerce_payment']['page'] = 'disabled';
-  $checkout_panes['commerce_payment_redirect']['page'] = 'disabled';
+  global $user;
+
+  // @TODO: Do something with this shite.
+  // This chunk of code is taken from commerce_checkout_panes(), and is meant to
+  // populate missing $checkout_panes defaults. The issue here is that function
+  // commerce_checkout_panes() indirectly calls itself through
+  // commerce_marketplace_cart_order_load_multiple() below, and the second time
+  // $checkout_panes in commerce_checkout_panes() are already populated, but not
+  // yet fully, so we go directly to the second section ($conditions checks)
+  // without fully going through the first one.
+  // Something like:
+  //    commerce_order_statuses()
+  //    hook_commerce_order_status_info()
+  //    commerce_checkout_commerce_order_status_info()
+  //    commerce_checkout_pages()
+  //    commerce_checkout_panes()
+  //    hook_commerce_checkout_pane_info_alter()
+  //    commerce_marketplace_payment_commerce_checkout_pane_info_alter()
+  //    commerce_marketplace_cart_order_load_multiple()
+  //    commerce_marketplace_cart_order_ids()
+  //    commerce_order_statuses()
+  foreach ($checkout_panes as $pane_id => $checkout_pane) {
+    // Set some defaults for the checkout pane.
+    $defaults = array(
+      'base' => $pane_id,
+      'name' => $checkout_pane['title'],
+      'page' => 'checkout',
+      'locked' => FALSE,
+      'fieldset' => TRUE,
+      'collapsible' => FALSE,
+      'collapsed' => FALSE,
+      'weight' => 0,
+      'enabled' => TRUE,
+      'review' => TRUE,
+      'callbacks' => array(),
+      'file' => '',
+    );
+    $checkout_pane += $defaults;
+    // Merge in default callbacks.
+    foreach (array('settings_form', 'checkout_form', 'checkout_form_validate', 'checkout_form_submit', 'review') as $callback) {
+      if (!isset($checkout_pane['callbacks'][$callback])) {
+        $checkout_pane['callbacks'][$callback] = $checkout_pane['base'] . '_' . $callback;
+      }
+    }
+    $checkout_panes[$pane_id] = $checkout_pane;
+  }
+
+  // When payments should be sent directly to the merchants, but there is no
+  // enabled parallel payment common for all orders in the order group, we need
+  // to use marketplace-specific checkout panes instead of the default ones.
+  // Also see commerce_marketplace_shipping_commerce_checkout_pane_info_alter()
+  $menu_item = menu_get_item();
+  if (strpos($menu_item['path'], 'checkout/%') === 0) {
+    $order = $menu_item['page_arguments'][0];
+  }
+  else {
+    // This will load only orders with the 'shopping cart' status, while here
+    // we need ALL orders from the order group, regardless of their status
+    // (even those with the 'Payment' status) - that's why we'd need to load
+    // them again below based on the order_group ID.
+    $orders = commerce_marketplace_cart_order_load_multiple($user->uid);
+    $order = reset($orders);
+  }
+  if (
+    !empty($order->order_group)
+    && ($orders = commerce_marketplace_order_group_load($order->order_group))
+  ) {
+    // If there is no enabled parallel payment common for all orders in the
+    // order group, we need to use marketplace-specific checkout panes instead
+    // of the default ones.
+    if (
+      variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants'
+      && !commerce_marketplace_payment_common_enabled_parallel_payment_methods($orders)
+      && commerce_marketplace_order_count($orders) > 1
+    ) {
+      // Disable default panes.
+      $checkout_panes['commerce_payment']['page'] = 'disabled';
+      $checkout_panes['commerce_payment_redirect']['page'] = 'disabled';
+      // Enable marketplace-specific panes.
+      $checkout_panes['commerce_marketplace_review']['page'] = 'reviews';
+      $checkout_panes['commerce_marketplace_payment']['page'] = 'reviews';
+      $checkout_panes['commerce_marketplace_payment_redirect']['page'] = 'payment';
+    }
+    // When sending payment to main store, or sending to merchants directly,
+    // but there is at least one enabled common parallel payment method.
+    else {
+      $checkout_panes['commerce_marketplace_payment']['page'] = $checkout_panes['commerce_payment']['page'];
+      $checkout_panes['commerce_payment']['page'] = 'disabled';
+      $checkout_panes['commerce_marketplace_payment_redirect']['page'] = $checkout_panes['commerce_payment_redirect']['page'];
+      $checkout_panes['commerce_payment_redirect']['page'] = 'disabled';
+    }
+  }
 }
 
 /**
@@ -129,6 +229,69 @@ function commerce_marketplace_payment_enabled_methods() {
   }
 
   return $enabled_payment_methods;
+}
+
+/**
+ * Returns all enabled parallel payment methods.
+ *
+ * @return array
+ *   An array of enabled parallel payment methods.
+ */
+function commerce_marketplace_payment_enabled_parallel_methods() {
+  $methods = commerce_marketplace_payment_enabled_methods();
+  foreach ($methods as $key => $method) {
+    if (empty($method['parallel'])) {
+      unset($methods[$key]);
+    }
+  }
+  return $methods;
+}
+
+/**
+ * Returns all enabled parallel payment methods common for all orders in the
+ * order group.
+ *
+ * @param array $orders
+ *   An array of orders in the order group.
+ *
+ * @return array|false
+ *   An array of enabled parallel payment methods common for all orders in the
+ *   order group or FALSE if no such payment method exists.
+ */
+function commerce_marketplace_payment_common_enabled_parallel_payment_methods($orders) {
+
+  if (variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) != 'merchants') {
+    return FALSE;
+  }
+
+  if (empty($orders) || commerce_marketplace_order_count($orders) <= 1) {
+    return FALSE;
+  }
+
+  // Populate orders with their relevant payment methods.
+  foreach ($orders as $order) {
+    // Invoke the payment methods event that will populate the order with
+    // an array of method IDs for available payment methods.
+    $order->payment_methods = array();
+    rules_invoke_all('commerce_payment_methods', $order);
+    // Keep only methods enabled for the order's store.
+    commerce_marketplace_payment_filter_store_payment_methods($order);
+    // Update order payment methods with relevant store payment method settings.
+    commerce_marketplace_payment_update_store_payment_method_settings($order);
+  }
+
+  $enabled_parallel_methods = commerce_marketplace_payment_enabled_parallel_methods();
+  foreach ($enabled_parallel_methods as $key => $enabled_parallel_method) {
+    $method_name = $enabled_parallel_method['method_id'] . '|commerce_payment_' . $enabled_parallel_method['method_id'];
+    $enabled_parallel_methods[$key] = $method_name;
+    foreach ($orders as $order) {
+      if (!in_array($method_name, array_keys($order->payment_methods))) {
+        unset($enabled_parallel_methods[$key]);
+      }
+    }
+  }
+
+  return $enabled_parallel_methods;
 }
 
 /**
@@ -233,14 +396,134 @@ function commerce_marketplace_payment_commerce_store_form_submit($form, &$form_s
 }
 
 /**
+ * Implements hook_module_implements_alter().
+ *
+ * Make sure that commerce_marketplace_payment_commerce_checkout_pane_info_alter()
+ * is called after commerce_marketplace_shipping_commerce_checkout_pane_info_alter(),
+ * so that shipping pane is always displayed on the correct page.
+ *
+ * This needs to be done because commerce_marketplace_shipping module by
+ * default moves Shipping pane to the Reviews checkout page, and it's only
+ * commerce_marketplace_payment module that checks where the Shipping pane
+ * really should be displayed based on enabled payment methods for each order
+ * (displaying Shipping pane on the Reviews page if there is no common parallel
+ * payment method enabled for all stores for current order group, or moving
+ * it back to its default Shipping page if such parallel payment method is
+ * available).
+ *
+ * @see commerce_marketplace_payment_commerce_checkout_pane_info_alter()
+ * @see commerce_marketplace_shipping_commerce_checkout_pane_info_alter()
+ */
+function commerce_marketplace_payment_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'form_alter') {
+    // Move commerce_marketplace_payment_commerce_checkout_pane_info_alter()
+    // implementation to the end of the list.
+    $group = $implementations['commerce_marketplace_payment'];
+    unset($implementations['commerce_marketplace_payment']);
+    $implementations['commerce_marketplace_payment'] = $group;
+  }
+}
+
+/**
  * Implements hook_form_alter().
+ *
+ * @see commerce_marketplace_checkout_form_alter()
+ * @see commerce_marketplace_checkout_form_submit()
+ * @see commerce_marketplace_payment_module_implements_alter()
  */
 function commerce_marketplace_payment_form_alter(&$form, &$form_state, $form_id) {
-  if (strpos($form_id, 'commerce_checkout_form_reviews_') === 0) {
-    // Add pane form wrappers so that we can update it via ajax callback
-    // (including Shopping cart contents view).
-    $wrapper_id = 'commerce-checkout-form-reviews-form-' . $form_state['order']->order_id;
+  // Add extra wrapper for the whole form, so that we can update it via ajax
+  // callback (see commerce_marketplace_payment_pane_checkout_form()).
+  // Also see commerce_marketplace_shipping_form_alter().
+  if (!empty($form['commerce_marketplace_payment'])) {
+    $wrapper_id = 'commerce-checkout-form-' . $form_state['order']->order_id;
     $form['#prefix'] = '<div id="' . $wrapper_id . '">';
     $form['#suffix'] = '</div>';
+  }
+
+  // $form_state['orders'] array containing all orders in the current order
+  // group was added in commerce_marketplace_checkout_form_alter(). It should
+  // include all orders which should be processed after submitting the form in
+  // commerce_marketplace_checkout_form_submit(). In case though when next page
+  // is payment, and payments should be sent directly to merchants, and there
+  // is no enabled parallel payment common for all orders in the order group,
+  // we want to process each order separately.
+  // This should always be called after commerce_marketplace_checkout_form_alter()
+  // (see commerce_marketplace_payment_module_implements_alter()).
+  if (
+    strpos($form_id, 'commerce_checkout_form_') !== FALSE
+    && $form_state['checkout_page']['next_page'] == 'payment'
+    && variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants'
+    && !commerce_marketplace_payment_common_enabled_parallel_payment_methods($form_state['orders'])
+  ) {
+    $form_state['orders'] = array($form_state['order']->order_id => $form_state['order']);
+  }
+}
+
+function commerce_marketplace_payment_filter_store_payment_methods(&$order) {
+  // Verify that all marketplace payment methods are enable for the store
+  // related to the current order, and if some methods are not enabled,
+  // or not configured, remove them from the options.
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $store = $order_wrapper->commerce_store->value();
+  if (!empty($store)) {
+    $payment_method_definitions = commerce_marketplace_payment_enabled_methods();
+    foreach ($order->payment_methods as $payment_method_long_id => $details) {
+      $keys = explode('|', $payment_method_long_id);
+      $payment_method_short_id = reset($keys);
+
+      $payment_method = $payment_method_definitions[$payment_method_short_id];
+      $settings_form_callback = $payment_method['callbacks']['settings_form'];
+
+      if (
+        // Payment method has to be enabled for the current store.
+        empty($store->data['payment_methods']['enabled'][$payment_method_short_id])
+        // Payment method has to be configured for the current store.
+        || empty($store->data['payment_methods']['settings'][$payment_method_short_id]) && function_exists($settings_form_callback)
+      ) {
+        unset($order->payment_methods[$payment_method_long_id]);
+      }
+    }
+  }
+
+  // Sort the payment methods array by the enabling Rules' weight values.
+  uasort($order->payment_methods, 'drupal_sort_weight');
+}
+
+/**
+ * Updates default payment method settings embedded in the order object
+ * with payment method settings of the store an order is assigned to.
+ *
+ * @param object $order
+ *   An order which payment method settings are to be updated.
+ */
+function commerce_marketplace_payment_update_store_payment_method_settings(&$order) {
+  $wrapper = entity_metadata_wrapper('commerce_order', $order);
+  if (!empty($wrapper->commerce_store)) {
+    $store = $wrapper->commerce_store->value();
+    foreach ($order->payment_methods as $key => $method) {
+      if (!empty($store->data['payment_methods']['settings'][$method['method_id']])) {
+        $order->payment_methods[$key]['settings'] = $store->data['payment_methods']['settings'][$method['method_id']];
+      }
+    }
+  }
+}
+
+/**
+ * Updates default payment method settings with settings of the store an order
+ * is assigned to.
+ *
+ * @param array $payment_method
+ *   A payment method which settings are to be updated.
+ * @param object $order
+ *   An order which updated payment method settings are to be taken from.
+ */
+function commerce_marketplace_payment_update_payment_method_settings(&$payment_method, $order) {
+  $wrapper = entity_metadata_wrapper('commerce_order', $order);
+  if (!empty($wrapper->commerce_store)) {
+    $store = $wrapper->commerce_store->value();
+    if (!empty($store->data['payment_methods']['settings'][$payment_method['method_id']])) {
+      $payment_method['settings'] = $store->data['payment_methods']['settings'][$payment_method['method_id']];
+    }
   }
 }

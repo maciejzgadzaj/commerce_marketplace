@@ -81,6 +81,13 @@ function commerce_marketplace_payment_pane_settings_form($checkout_pane) {
     '#default_value' => variable_get('commerce_marketplace_payment_pane_pay_label', 'Pay for this order'),
   );
 
+  $form['commerce_marketplace_payment_pane_paid'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Paid order info'),
+    '#default_value' => variable_get('commerce_marketplace_payment_pane_paid', 'This order has been already paid.'),
+    '#rows' => 2,
+  );
+
   $form['commerce_marketplace_payment_pane_allow_back'] = array(
     '#type' => 'checkbox',
     '#title' => t('Display <em>Go back</em> link next to each <em>Pay for this order</em> button.'),
@@ -93,11 +100,19 @@ function commerce_marketplace_payment_pane_settings_form($checkout_pane) {
 /**
  * Payment pane: form callback.
  *
+ * This pane in used in two cases:
+ *
+ * @see commerce_payment_pane_checkout_form()
  * @see commerce_marketplace_payment_pane_checkout_form_validate()
  * @see commerce_marketplace_payment_pane_checkout_form_submit()
  */
 function commerce_marketplace_payment_pane_checkout_form($form, &$form_state, $checkout_pane, $order) {
   $pane_form = array();
+
+  // Make sure this file is always included.
+  $form_state['build_info']['files']['marketplace_form'] = drupal_get_path('module', 'commerce_marketplace_payment') . '/includes/commerce_marketplace_payment.checkout_pane.inc';
+
+  $orders = !empty($order->order_group) ? commerce_marketplace_order_group_load($order->order_group) : array($order);
 
   // @TODO: What is the safest way to check if order has already been paid for?
   $order_status = commerce_order_status_load($order->status);
@@ -107,34 +122,32 @@ function commerce_marketplace_payment_pane_checkout_form($form, &$form_state, $c
     // an array of method IDs for available payment methods.
     $order->payment_methods = array();
     rules_invoke_all('commerce_payment_methods', $order);
-
-    // Verify that all marketplace payment methods are enable for the store
-    // related to the current order, and if some methods are not enabled,
-    // or not configured, remove them from the options.
-    $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
-    $store = $order_wrapper->commerce_store->value();
-    if (!empty($store)) {
-      $payment_method_definitions = commerce_marketplace_payment_enabled_methods();
-      foreach ($order->payment_methods as $payment_method_long_id => $details) {
-        $keys = explode('|', $payment_method_long_id);
-        $payment_method_short_id = reset($keys);
-
-        $payment_method = $payment_method_definitions[$payment_method_short_id];
-        $settings_form_callback = $payment_method['callbacks']['settings_form'];
-
-        if (
-          // Payment method has to be enabled for the current store.
-          empty($store->data['payment_methods']['enabled'][$payment_method_short_id])
-          // Payment method has to be configured for the current store.
-          || empty($store->data['payment_methods']['settings'][$payment_method_short_id]) && function_exists($settings_form_callback)
-        ) {
-          unset($order->payment_methods[$payment_method_long_id]);
-        }
-      }
+    // Keep only methods enabled for the order's store.
+    if (variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants') {
+      commerce_marketplace_payment_filter_store_payment_methods($order);
     }
+    // Update order payment methods with relevant store payment method settings.
+    commerce_marketplace_payment_update_store_payment_method_settings($order);
 
-    // Sort the payment methods array by the enabling Rules' weight values.
-    uasort($order->payment_methods, 'drupal_sort_weight');
+    // When payments are sent directly to merchants, and there is at least one
+    // enabled parallel payment method common for all orders in the order group,
+    // we want to offer only those parallel payment methods to the customer,
+    // let's then get rid of all other methods.
+    if (
+//      ($orders = commerce_marketplace_cart_order_load_multiple($user->uid))
+      variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants'
+      && commerce_marketplace_order_count($orders) > 1
+      && ($parallel_methods = commerce_marketplace_payment_common_enabled_parallel_payment_methods($orders))
+    ) {
+      $order->payment_methods = array_intersect_key($order->payment_methods, array_flip($parallel_methods));
+      $form_state['orders'] = $orders;
+    }
+    elseif (variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'main_store') {
+      $form_state['orders'] = $orders;
+    }
+    else {
+      $form_state['orders'] = array($order);
+    }
 
     // Generate an array of payment method options for the checkout form.
     $options = array();
@@ -175,7 +188,7 @@ function commerce_marketplace_payment_pane_checkout_form($form, &$form_state, $c
         '#options' => $options,
         '#ajax' => array(
           'callback' => 'commerce_marketplace_payment_pane_checkout_form_details_refresh',
-          'wrapper' => 'commerce-checkout-form-reviews-form-' . $form_state['order']->order_id,
+          'wrapper' => 'commerce-checkout-form-' . $form_state['order']->order_id,
         ),
       );
 
@@ -205,6 +218,14 @@ function commerce_marketplace_payment_pane_checkout_form($form, &$form_state, $c
       $payment_method = commerce_payment_method_load($method_info['method_id']);
       $payment_method['settings'] = $method_info['settings'];
 
+      $wrapper = entity_metadata_wrapper('commerce_order', $order);
+      if (!empty($wrapper->commerce_store)) {
+        $store = $wrapper->commerce_store->value();
+        if (!empty($store->data['payment_methods']['settings'][$method_info['method_id']])) {
+          $payment_method['settings'] = $store->data['payment_methods']['settings'][$method_info['method_id']];
+        }
+      }
+
       if ($callback = commerce_payment_method_callback($payment_method, 'submit_form')) {
         $pane_form['payment_details'] = $callback($payment_method, $pane_values, $checkout_pane, $order);
       }
@@ -218,7 +239,7 @@ function commerce_marketplace_payment_pane_checkout_form($form, &$form_state, $c
   }
   else {
     $pane_form['payment_details'] = array(
-      '#markup' => t('This order has been already paid.'),
+      '#markup' => t(variable_get('commerce_marketplace_payment_pane_paid', 'This order has been already paid.')),
     );
   }
 
@@ -227,6 +248,8 @@ function commerce_marketplace_payment_pane_checkout_form($form, &$form_state, $c
 
 /**
  * Returns the payment details element for display via AJAX.
+ *
+ * @see commerce_payment_pane_checkout_form_details_refresh()
  */
 function commerce_marketplace_payment_pane_checkout_form_details_refresh($form, $form_state) {
   return $form;
@@ -235,6 +258,7 @@ function commerce_marketplace_payment_pane_checkout_form_details_refresh($form, 
 /**
  * Payment pane: validation callback.
  *
+ * @see commerce_payment_pane_checkout_form_validate()
  * @see commerce_marketplace_payment_pane_checkout_form()
  * @see commerce_marketplace_payment_pane_checkout_form_submit()
  */
@@ -245,6 +269,7 @@ function commerce_marketplace_payment_pane_checkout_form_validate($form, &$form_
   if (!empty($form[$pane_id]) && !empty($form_state['values'][$pane_id])) {
     $pane_form = $form[$pane_id];
     $pane_values = $form_state['values'][$pane_id];
+    $orders = commerce_marketplace_order_group_load($order->order_group);
 
     // Only attempt validation if there were payment methods available.
     if (!empty($pane_values['payment_methods'])) {
@@ -252,6 +277,14 @@ function commerce_marketplace_payment_pane_checkout_form_validate($form, &$form_
       if ($pane_values['payment_method'] != $pane_form['payment_method']['#default_value']) {
         // And the newly selected method has a valid form callback...
         if ($payment_method = commerce_payment_method_instance_load($pane_values['payment_method'])) {
+          // @DIFF: Update payment method with relevant store payment method settings.
+          if (
+            variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants'
+            && !commerce_marketplace_payment_common_enabled_parallel_payment_methods($orders)
+          ) {
+            commerce_marketplace_payment_update_payment_method_settings($payment_method, $order);
+          }
+
           if (commerce_payment_method_callback($payment_method, 'submit_form')) {
             // Fail validation so the form is rebuilt to include the payment method
             // specific form elements.
@@ -262,6 +295,13 @@ function commerce_marketplace_payment_pane_checkout_form_validate($form, &$form_
 
       // Delegate validation to the payment method callback.
       $payment_method = commerce_payment_method_instance_load($pane_values['payment_method']);
+      // @DIFF: Update payment method with relevant store payment method settings.
+      if (
+        variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants'
+        && !commerce_marketplace_payment_common_enabled_parallel_payment_methods($orders)
+      ) {
+        commerce_marketplace_payment_update_payment_method_settings($payment_method, $order);
+      }
 
       if ($callback = commerce_payment_method_callback($payment_method, 'submit_form_validate')) {
         // Initialize the payment details array to accommodate payment methods
@@ -296,6 +336,11 @@ function commerce_marketplace_payment_pane_checkout_form_validate($form, &$form_
 /**
  * Payment pane: submit callback.
  *
+ * Calls original submit callback for each order which should be paid, hoping
+ * that the original callback won't drupal_goto() anywhere, as it will break
+ * the functionality.
+ *
+ * @see commerce_payment_pane_checkout_form_submit()
  * @see commerce_marketplace_payment_pane_checkout_form()
  * @see commerce_marketplace_payment_pane_checkout_form_validate()
  */
@@ -322,6 +367,14 @@ function commerce_marketplace_payment_pane_checkout_form_submit($form, &$form_st
       if ($balance = commerce_payment_order_balance($order)) {
         // Delegate submit to the payment method callback.
         $payment_method = commerce_payment_method_instance_load($pane_values['payment_method']);
+        // @DIFF: Update payment method with relevant store payment method settings.
+        $orders = commerce_marketplace_order_group_load($order->order_group);
+        if (
+          variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants'
+          && !commerce_marketplace_payment_common_enabled_parallel_payment_methods($orders)
+        ) {
+          commerce_marketplace_payment_update_payment_method_settings($payment_method, $order);
+        }
 
         if ($callback = commerce_payment_method_callback($payment_method, 'submit_form_submit')) {
           // Initialize the payment details array to accommodate payment methods
@@ -342,11 +395,21 @@ function commerce_marketplace_payment_pane_checkout_form_submit($form, &$form_st
 
 /**
  * Payment redirect pane: form callback.
+ *
+ * @see commerce_payment_redirect_pane_checkout_form()
  */
 function commerce_marketplace_payment_redirect_pane_checkout_form(&$form, &$form_state, $checkout_pane, $order) {
+  $orders = commerce_marketplace_order_group_load($order->order_group);
+
   // First load the order's specified payment method instance.
   if (!empty($order->data['payment_method'])) {
     $payment_method = commerce_payment_method_instance_load($order->data['payment_method']);
+    if (
+      variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants'
+      && !commerce_marketplace_payment_common_enabled_parallel_payment_methods($orders)
+    ) {
+      commerce_marketplace_payment_update_payment_method_settings($payment_method, $order);
+    }
   }
   else {
     $payment_method = FALSE;
@@ -362,54 +425,78 @@ function commerce_marketplace_payment_redirect_pane_checkout_form(&$form, &$form
     }
 
     // Advance the customer to the next step of the checkout process.
-    commerce_payment_redirect_pane_next_page($order, $log);
+    foreach ($orders as $group_order) {
+      commerce_payment_redirect_pane_next_page($group_order, $log);
+      if ($order->order_id == $group_order->order_id) {
+        $order = $group_order;
+      }
+    }
     drupal_goto(commerce_marketplace_checkout_order_uri($order));
   }
 
   // If the user came to the cancel URL...
-  if (arg(3) == 'back' && arg(4) == $order->data['payment_redirect_key']) {
-    // Perform any payment cancellation functions if necessary.
-    if ($callback = commerce_payment_method_callback($payment_method, 'redirect_form_back')) {
-      $callback($order, $payment_method);
-    }
+  if (arg(3) == 'back') {
+    foreach ($orders as $group_order) {
+      if (arg(4) == $group_order->data['payment_redirect_key']) {
+        // Perform any payment cancellation functions if necessary.
+        if ($callback = commerce_payment_method_callback($payment_method, 'redirect_form_back')) {
+          $callback($group_order, $payment_method);
+        }
 
-    // Send the customer to the previous step of the checkout process.
-    commerce_payment_redirect_pane_previous_page($order, t('Customer canceled payment at the payment gateway.'));
-    drupal_goto(commerce_marketplace_checkout_order_uri($order));
+        // Send the customer to the previous step of the checkout process.
+        commerce_payment_redirect_pane_previous_page($group_order, t('Customer canceled payment at the payment gateway.'));
+      }
+      if ($order->order_id == $group_order->order_id) {
+        $order = $group_order;
+      }
+    }
+    drupal_goto(commerce_checkout_order_uri($order));
   }
 
   // If the user came to the return URL...
-  if (arg(3) == 'return' && arg(4) == $order->data['payment_redirect_key']) {
-    // Check for a validate handler on return.
-    $validate_callback = commerce_payment_method_callback($payment_method, 'redirect_form_validate');
+  if (arg(3) == 'return') {
+    foreach ($orders as $group_order) {
+      if (arg(4) == $group_order->data['payment_redirect_key']) {
+        // Check for a validate handler on return.
+        $validate_callback = commerce_payment_method_callback($payment_method, 'redirect_form_validate');
 
-    // If there is no validate handler or if there is and it isn't FALSE...
-    if (!$validate_callback || $validate_callback($order, $payment_method) !== FALSE) {
-      // Perform any submit functions if necessary.
-      if ($callback = commerce_payment_method_callback($payment_method, 'redirect_form_submit')) {
-        $callback($order, $payment_method);
+        // If there is no validate handler or if there is and it isn't FALSE...
+        if (!$validate_callback || $validate_callback($group_order, $payment_method) !== FALSE) {
+          // Perform any submit functions if necessary.
+          if ($callback = commerce_payment_method_callback($payment_method, 'redirect_form_submit')) {
+            $callback($group_order, $payment_method);
+          }
+
+          // Send the customer on to the next checkout page.
+          commerce_payment_redirect_pane_next_page($group_order, t('Customer successfully submitted payment at the payment gateway.'));
+        }
+        else {
+          // Otherwise display the failure message and send the customer back.
+          drupal_set_message(t('Payment failed at the payment server. Please review your information and try again.'), 'error');
+
+          commerce_payment_redirect_pane_previous_page($group_order, t('Customer payment submission failed at the payment gateway.'));
+        }
       }
-
-      // Send the customer on to the next checkout page.
-      commerce_payment_redirect_pane_next_page($order, t('Customer successfully submitted payment at the payment gateway.'));
-      drupal_goto(commerce_marketplace_checkout_order_uri($order));
+      if ($order->order_id == $group_order->order_id) {
+        $order = $group_order;
+      }
     }
-    else {
-      // Otherwise display the failure message and send the customer back.
-      drupal_set_message(t('Payment failed at the payment server. Please review your information and try again.'), 'error');
-
-      commerce_payment_redirect_pane_previous_page($order, t('Customer payment submission failed at the payment gateway.'));
-      drupal_goto(commerce_marketplace_checkout_order_uri($order));
-    }
+    drupal_goto(commerce_checkout_order_uri($order));
   }
 
   // If the function to build the redirect form exists...
   if ($callback = commerce_payment_method_callback($payment_method, 'redirect_form')) {
     // Generate a key to use in the return URL from the redirected service if it
     // does not already exist.
-    if (empty($order->data['payment_redirect_key'])) {
-      $order->data['payment_redirect_key'] = drupal_hash_base64(time());
-      commerce_order_save($order);
+    $payment_redirect_key = drupal_hash_base64(time());
+    foreach ($orders as $group_order) {
+      if (empty($group_order->data['payment_redirect_key'])) {
+        $group_order->data['payment_redirect_key'] = $payment_redirect_key;
+        commerce_order_save($group_order);
+        if ($order->order_id == $group_order->order_id) {
+          $order = $group_order;
+        }
+      }
     }
 
     // If the payment method has the 'offsite_autoredirect' option enabled, add
@@ -419,9 +506,46 @@ function commerce_marketplace_payment_redirect_pane_checkout_form(&$form, &$form
       $form['help']['#markup'] = '<div class="checkout-help">' . t('Please wait while you are redirected to the payment server. If nothing happens within 10 seconds, please click on the button below.') . '</div>';
     }
 
-    // Merge the new form into the current form array, preserving the help text
-    // if it exists. We also add a wrapper so the form can be easily submitted.
-    $form += drupal_get_form($callback, $order, $payment_method);
+    //  When dealing with multiple orders, but sending only one payment, we need
+    // to calculate summarized values and provide them to the payment gateway.
+    // This includes not only total amount, but also "order number" (which will
+    // consist of several numbers put together) and possibly other data as well.
+    if (
+      commerce_marketplace_order_count($orders) > 1
+      && (
+        variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) != 'merchants'
+        || variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants'
+        && commerce_marketplace_payment_common_enabled_parallel_payment_methods($orders)
+      )
+    ) {
+      // Let's use current order for the basis.
+      $marketplace_order = $order;
+      $marketplace_order_wrapper = entity_metadata_wrapper('commerce_order', $marketplace_order);
+
+      // Calculate marketplace order totals from all order totals.
+      $marketplace_order_total = commerce_marketplace_order_calculate_total($orders);
+      $marketplace_order_wrapper->commerce_order_total = $marketplace_order_total;
+
+      // Prepare new 'order number' to be passed to the payment gateway,
+      // also add all line items from all orders.
+      $marketplace_order_number = '';
+      $commerce_line_items = array();
+      foreach ($orders as $group_order) {
+        $marketplace_order_number[] = $group_order->order_number;
+        $commerce_line_items = array_merge_recursive($commerce_line_items, $group_order->commerce_line_items);
+      }
+      $marketplace_order->order_number = implode(', ', $marketplace_order_number);
+      $marketplace_order->commerce_line_items = $commerce_line_items;
+
+      // Merge the new form into the current form array, preserving the help text
+      // if it exists. We also add a wrapper so the form can be easily submitted.
+      $form += drupal_get_form($callback, $marketplace_order, $payment_method);
+    }
+    else {
+      // Merge the new form into the current form array, preserving the help text
+      // if it exists. We also add a wrapper so the form can be easily submitted.
+      $form += drupal_get_form($callback, $order, $payment_method);
+    }
 
     $form['#prefix'] = '<div class="payment-redirect-form">';
     $form['#suffix'] = '</div>';
@@ -435,12 +559,15 @@ function commerce_marketplace_payment_redirect_pane_checkout_form(&$form, &$form
 /**
  * Utility function: return a payment redirect page for POST.
  *
- * @param $action
+ * @param string $action
  *   The destination URL the values should be posted to.
- * @param $values
+ * @param array $values
  *   An associative array of values that will be posted to the destination URL.
- * @return
+ *
+ * @return array
  *   A renderable array.
+ *
+ * @see commerce_payment_post_redirect_form()
  */
 function commerce_marketplace_payment_post_redirect_form($action, array $values = array()) {
   $form = array(
