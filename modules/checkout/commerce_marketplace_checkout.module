@@ -6,6 +6,24 @@
  */
 
 /**
+ * Implements hook_menu().
+ */
+function commerce_marketplace_checkout_menu() {
+  $items = array();
+
+  $items['admin/commerce/marketplace/checkout'] = array(
+    'title' => 'Checkout settings',
+    'description' => 'Customize the marketplace checkout forms.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_marketplace_checkout_settings_form'),
+    'access arguments' => array('configure store'),
+    'file' => 'includes/commerce_marketplace_checkout.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
  * Implements hook_views_api().
  */
 function commerce_marketplace_checkout_views_api() {
@@ -87,8 +105,11 @@ function commerce_marketplace_checkout_router($order, $checkout_page = NULL) {
 
   // Include file providing main commerce_checkout_form().
   module_load_include('inc', 'commerce_checkout', 'includes/commerce_checkout.pages');
-  // Special behavior for Marketplace Review page.
-  if ($checkout_page['page_id'] == 'reviews') {
+
+  // Special behavior for checkout pages which should repeat all panes
+  // for each order.
+  // @see commerce_marketplace_checkout_settings_form()
+  if (commerce_marketplace_checkout_repeat($checkout_page['page_id'])) {
     $orders = commerce_marketplace_order_group_load($order->order_group);
     $return = array();
     foreach ($orders as $group_order) {
@@ -96,15 +117,18 @@ function commerce_marketplace_checkout_router($order, $checkout_page = NULL) {
 
       // If there are one or more products in the cart...
       if (commerce_line_items_quantity($order_wrapper->commerce_line_items, commerce_product_line_item_types()) > 0) {
-        $store_name = !empty($group_order->commerce_store) ? $order_wrapper->commerce_store->title->value() : variable_get('site_name', 'Drupal');
-        $return[] = array(
-          '#type' => 'markup',
-          '#markup' => '<h2>' . t('Order from @store', array('@store' => $store_name)) . '</h2>',
-        );
+        if (commerce_marketplace_checkout_repeat($checkout_page['page_id'], 'titles')) {
+          $store_name = !empty($group_order->commerce_store) ? $order_wrapper->commerce_store->title->value() : variable_get('site_name', 'Drupal');
+          $return[] = array(
+            '#type' => 'markup',
+            '#markup' => '<h2>' . t('Order from @store', array('@store' => $store_name)) . '</h2>',
+          );
+        }
         $form_id = 'commerce_checkout_form_' . $checkout_page['page_id'] . '_' . $group_order->order_id;
         $return[] = drupal_get_form($form_id, $group_order, $checkout_page);
       }
     }
+
     return $return;
   }
   // Default behavior.
@@ -271,7 +295,15 @@ function commerce_marketplace_checkout_form_alter(&$form, &$form_state, $form_id
   if (strpos($form_id, 'commerce_checkout_form_') !== FALSE) {
     // Add array with all orders in current order group.
     if (!empty($form_state['order'])) {
-      $form_state['orders'] = !empty($form_state['order']->order_group) ? commerce_marketplace_order_group_load($form_state['order']->order_group) : array($form_state['order']->order_id => $form_state['order']);
+      if (
+        !empty($form_state['order']->order_group)
+        && !commerce_marketplace_checkout_repeat($form_state['checkout_page']['page_id'])
+      ) {
+        $form_state['orders'] = commerce_marketplace_order_group_load($form_state['order']->order_group);
+      }
+      else {
+        $form_state['orders'] = array($form_state['order']->order_id => $form_state['order']);
+      }
     }
 
     $form_state['build_info']['files']['form'] = drupal_get_path('module', 'commerce_checkout') . '/includes/commerce_checkout.pages.inc';
@@ -300,6 +332,18 @@ function commerce_marketplace_checkout_form_alter(&$form, &$form_state, $form_id
       if (FALSE !== $key = array_search('commerce_cart_checkout_form_cancel_submit', $form['buttons']['cancel']['#submit'])) {
         $form['buttons']['cancel']['#submit'][$key] = 'commerce_marketplace_cart_checkout_form_cancel_submit';
       }
+    }
+
+    // For checkout pages which repeat all panes for each order, we might want
+    // to display submit/cancel buttons only at the very end of the page (after
+    // the last order from current order group) instead of after each pane set.
+    // @see commerce_marketplace_checkout_settings_form()
+    if (
+      !commerce_marketplace_checkout_repeat($form_state['checkout_page']['page_id'], 'buttons')
+      && ($orders = commerce_marketplace_order_group_load($form_state['order']->order_group))
+      && !($form_state['order']->order_id == max(array_keys($orders)))
+    ) {
+      unset($form['buttons']);
     }
   }
 
@@ -660,4 +704,46 @@ function commerce_marketplace_checkout_form_back_submit($form, &$form_state) {
       }
     }
   }
+}
+
+/**
+ * Returns settings for repeating elements on the provided checkout page.
+ *
+ * @param $page_id
+ *   Id of the checkout page to return the repeat settings for.
+ * @param string $type
+ *   Type of the elements which to return the repeat settings for.
+ *
+ * @return mixed
+ *   A boolean indicating whether elements should be repeated for each order
+ *   in the order group or not.
+ */
+function commerce_marketplace_checkout_repeat($page_id, $type = 'pages') {
+  // First check the static cache for a store types array.
+  $repeat_settings = &drupal_static(__FUNCTION__);
+
+  // If it did not exist, fetch the types now.
+  if (!isset($repeat_settings)) {
+    $defaults = commerce_marketplace_checkout_repeat_pages_defaults();
+    $repeat_settings = variable_get('commerce_marketplace_checkout_repeat', $defaults);
+  }
+
+  return !empty($repeat_settings[$type][$page_id]);
+}
+
+/**
+ * Returns default settings for repeating elements on checkout pages.
+ *
+ * @return array
+ *   An array of default checkout page repeat settings.
+ */
+function commerce_marketplace_checkout_repeat_pages_defaults() {
+  // Use drupal_map_assoc() to return the same structure as saved in the
+  // 'commerce_marketplace_checkout_repeat' variable after submitting
+  // commerce_marketplace_checkout_settings_form() form for the first time.
+  return array(
+    'pages' => drupal_map_assoc(array('shipping', 'reviews')),
+    'titles' => drupal_map_assoc(array('reviews')),
+    'buttons' => drupal_map_assoc(array('reviews')),
+  );
 }
