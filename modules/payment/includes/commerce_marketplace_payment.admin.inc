@@ -115,6 +115,16 @@ function commerce_marketplace_payment_method_form($form, &$form_state, $store, $
     $defaults = !empty($store->data['payment_methods']['settings'][$payment_method_id]) ? $store->data['payment_methods']['settings'][$payment_method_id] : array();
     $form = call_user_func($settings_form_callback, $defaults);
 
+    // Special processing for text_format form element, for which #default_value
+    // is an array storing both value and format.
+    // See issue https://drupal.org/node/2218609
+    foreach (element_children($form) as $key) {
+      if ($form[$key]['#type'] == 'text_format' && !empty($form[$key]['#default_value']) && is_array($form[$key]['#default_value'])) {
+        $form[$key]['#format'] = $form[$key]['#default_value']['format'];
+        $form[$key]['#default_value'] = $form[$key]['#default_value']['value'];
+      }
+    }
+
     // Keep submitted form elements in the tree so it's easier to populate
     // the form with defaults next time it is visited.
     $form['#tree'] = TRUE;
