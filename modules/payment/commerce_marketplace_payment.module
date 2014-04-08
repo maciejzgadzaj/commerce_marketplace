@@ -441,7 +441,7 @@ function commerce_marketplace_payment_form_alter(&$form, &$form_state, $form_id)
     $form['#suffix'] = '</div>';
     //add settings for others modules to check whether commerce-marketplace-payment is enabled
     $js_settings = array(
-        'commerce_marketplace_payment_enabled' => 1
+      'commerce_marketplace_payment_enabled' => 1
     );
     drupal_add_js(array('commerce_marketplace' => $js_settings), 'setting');
   }
