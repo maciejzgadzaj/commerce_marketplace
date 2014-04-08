@@ -439,6 +439,11 @@ function commerce_marketplace_payment_form_alter(&$form, &$form_state, $form_id)
     $wrapper_id = 'commerce-checkout-form-' . $form_state['order']->order_id;
     $form['#prefix'] = '<div id="' . $wrapper_id . '">';
     $form['#suffix'] = '</div>';
+    //add settings for others modules to check whether commerce-marketplace-payment is enabled
+    $js_settings = array(
+        'commerce_marketplace_payment_enabled' => 1
+    );
+    drupal_add_js(array('commerce_marketplace' => $js_settings), 'setting');
   }
 
   // $form_state['orders'] array containing all orders in the current order
