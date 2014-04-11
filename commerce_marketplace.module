@@ -67,7 +67,11 @@ function commerce_marketplace_referencing_entity_types() {
   if (module_exists('commerce_product')) {
     $entity_types['commerce_product'] = array_keys(commerce_product_types());
   }
-
+  //make sure new bundles with a product reference field also get a store reference field.
+  if (module_exists('commerce_product_reference')) {
+    $product_displays = array_keys(commerce_product_reference_node_types());
+    $entity_types['commerce_product'] = array_unique(array_merge($product_displays,$entity_types['commerce_product']));
+  }
   // Add store field to product bundle of commerce_order.
   if (module_exists('commerce_order')) {
     $entity = entity_get_info('commerce_order');
