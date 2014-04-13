@@ -54,6 +54,15 @@ function commerce_marketplace_configure_referencing_entity_types() {
 }
 
 /**
+ * Implements hook_field_attach_create_bundle()
+ *
+ * Adds commerce_store field to bundles that so merit.
+ */
+function commerce_marketplace_field_attach_create_bundle($entity_type, $bundle) {
+  commerce_marketplace_configure_referencing_entity_types();
+}
+
+/**
  * Returns an array of entity types and their bundles
  * which should be referencing commerce store.
  *
