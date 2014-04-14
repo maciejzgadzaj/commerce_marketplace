@@ -195,6 +195,21 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['pager']['type'] = 'full';
   $handler->display->display_options['pager']['options']['items_per_page'] = '25';
   $handler->display->display_options['style_plugin'] = 'table';
+  /* Header: Global: Text area */
+  $link = array(
+    'title' => t('Add a store'),
+    'href' => 'admin/commerce/stores/add',
+  );
+  $links = array(array(
+    '#theme' => 'menu_local_action',
+    '#link' => $link,
+  ));
+  $handler->display->display_options['header']['area']['id'] = 'area';
+  $handler->display->display_options['header']['area']['table'] = 'views';
+  $handler->display->display_options['header']['area']['field'] = 'area';
+  $handler->display->display_options['header']['area']['empty'] = TRUE;
+  $handler->display->display_options['header']['area']['content'] = theme('ctools_menu_local_actions_wrapper', array('links' => $links));
+  $handler->display->display_options['header']['area']['format'] = 'full_html';
   /* No results behavior: Global: Text area */
   $handler->display->display_options['empty']['area']['id'] = 'area';
   $handler->display->display_options['empty']['area']['table'] = 'views';
