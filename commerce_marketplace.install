@@ -22,11 +22,20 @@ function commerce_marketplace_install() {
     );
     user_role_save($merchant_role);
 
-    // Grant required permissions to the "merchant" role.
-    user_role_grant_permissions($merchant_role->rid, array(
+    // Grant permissions for stores of any type.
+    $permissions = array(
       'view own commerce_store entities',
       'edit own commerce_store entities',
-    ));
+      'create commerce_store entities',
+    );
+    // Also grant permissions for all existing bundles.
+    foreach (array_keys(commerce_store_types()) as $bundle) {
+      $permissions[] = 'view own commerce_store entities of bundle ' . $bundle;
+      $permissions[] = 'edit own commerce_store entities of bundle ' . $bundle;
+      $permissions[] = 'create commerce_store entities of bundle ' . $bundle;
+    }
+    // Grant required permissions to the "merchant" role.
+    user_role_grant_permissions($merchant_role->rid, $permissions);
 
     drupal_set_message(t('New %merchant role was added and required store-related user permissions were granted to this role. It is advised to review them on the <a href="@permissions_user">Permissions page</a>.', array(
       '@permissions_user' => url('admin/people/permissions', array('fragment' => 'module-commerce_store')),
