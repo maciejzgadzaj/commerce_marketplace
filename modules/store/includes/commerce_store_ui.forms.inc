@@ -407,18 +407,22 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
     '#submit' => array_merge($submit, array('commerce_store_ui_store_form_submit')),
   );
 
-  // Add the save and continue button for new stores.
-  if (empty($store->store_id)) {
+  // Form submit/cancel redirect depends on user access rights.
+  // We will need it in submit callback as well, let's then store it in form.
+  $form['#redirect'] = user_access('administer stores') ? 'admin/commerce/stores' : 'user/' . $user->uid . '/merchant/stores';
+
+  // Add the 'Save and add another' button for new stores for admin users.
+  if (empty($store->store_id) && user_access('administer stores')) {
     $form['actions']['save_continue'] = array(
       '#type' => 'submit',
       '#value' => t('Save and add another'),
       '#submit' => $form['actions']['submit']['#submit'],
-      '#suffix' => l(t('Cancel'), 'admin/commerce/stores'),
+      '#suffix' => l(t('Cancel'), $form['#redirect']),
       '#weight' => 45,
     );
   }
   else {
-    $form['actions']['submit']['#suffix'] = l(t('Cancel'), 'admin/commerce/stores');
+    $form['actions']['submit']['#suffix'] = l(t('Cancel'), $form['#redirect']);
   }
 
   // We append the validate handler to #validate in case a form callback_wrapper
@@ -508,8 +512,8 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
   if ($submit_element == 'save_continue') {
     $form_state['redirect'] = 'admin/commerce/stores/add/' . commerce_store_type_to_arg($store->type);
   }
-  elseif (arg(2) == 'stores' && arg(3) == 'add') {
-    $form_state['redirect'] = 'admin/commerce/stores';
+  else {
+    $form_state['redirect'] = $form['#redirect'];
   }
 }
 
