@@ -362,7 +362,7 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
   // Node options for administrators
   $form['options'] = array(
     '#type' => 'fieldset',
-    '#access' => commerce_store_access('update', $store),
+    '#access' => empty($store->store_id) || commerce_store_access('update', $store),
     '#title' => t('Status options'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,

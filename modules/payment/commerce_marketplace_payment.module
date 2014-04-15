@@ -356,7 +356,7 @@ function commerce_marketplace_payment_form_commerce_store_ui_store_form_alter(&$
 
   $form['payment_methods'] = array(
     '#type' => 'fieldset',
-    '#access' => user_access('administer stores'),
+    '#access' => empty($store->store_id) || commerce_store_access('update', $store),
     '#title' => t('Payment methods'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
