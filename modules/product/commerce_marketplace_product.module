@@ -14,3 +14,68 @@ function commerce_marketplace_product_views_api() {
     'path' => drupal_get_path('module', 'commerce_marketplace_product') . '/includes/views',
   );
 }
+
+/**
+ * Implements hook_module_implements_alter().
+ *
+ * Makes sure this module's implementation of hook_form_FORM_ID_alter for
+ * commerce_product_ui_product_form() is called after commerce_product_ui
+ * module's implementation.
+ *
+ * @see commerce_marketplace_product_form_commerce_product_ui_product_form_alter()
+ * @see commerce_marketplace_product_form_alter()
+ */
+function commerce_marketplace_product_module_implements_alter(&$implementations, $hook) {
+  // What we really need here is to alter order of hook_form_FORM_ID_alter()
+  // implementations, but it doesn't work as expected. To make it work we need
+  // to do it for simple hook_form_alter(), and define empty
+  // commerce_marketplace_product_form_alter().
+  if ($hook == 'form_alter') {
+    $group = $implementations['commerce_marketplace_product'];
+    unset($implementations['commerce_marketplace_product']);
+    $implementations['commerce_marketplace_product'] = $group;
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ *
+ * This is needed so that we can change the order of hook_form_FORM_ID_alter()
+ * implementations.
+ *
+ * @see commerce_marketplace_product_module_implements_alter()
+ */
+function commerce_marketplace_product_form_alter(&$form, &$form_state, $form_id) {
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter for commerce_product_ui_product_form().
+ *
+ * @see commerce_product_product_form()
+ * @see commerce_marketplace_product_product_ui_form_submit()
+ * @see commerce_marketplace_product_module_implements_alter()
+ */
+function commerce_marketplace_product_form_commerce_product_ui_product_form_alter(&$form, &$form_state) {
+  global $user;
+
+  // Form submit/cancel redirect depends on user access rights.
+  // We will need it in submit callback as well, let's then store it in form.
+  $form['#redirect'] = user_access('administer products') ? 'admin/commerce/products' : 'user/' . $user->uid . '/merchant/products';
+
+  // Add a submit handler to the save button to modify default redirects.
+  $form['actions']['submit']['#submit'][] = 'commerce_marketplace_product_product_ui_form_submit';
+
+  // Modify 'Cancel' link redirect.
+  if (isset($form['actions']['save_continue']['#suffix'])) {
+    $form['actions']['save_continue']['#suffix'] = l(t('Cancel'), $form['#redirect']);
+  }
+}
+
+/**
+ * Submit callback for commerce_product_ui_product_form().
+ *
+ * @see commerce_marketplace_product_form_commerce_product_ui_product_form_alter()
+ */
+function commerce_marketplace_product_product_ui_form_submit($form, &$form_state) {
+  $form_state['redirect'] = $form['#redirect'];
+}
