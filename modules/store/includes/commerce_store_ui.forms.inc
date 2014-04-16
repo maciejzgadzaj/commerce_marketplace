@@ -373,7 +373,7 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
     '#attached' => array(
       'js' => array(drupal_get_path('module', 'commerce_store_ui') . '/commerce_store_ui.js'),
     ),
-    '#weight' => 95,
+    '#weight' => 40,
   );
   $form['options']['status'] = array(
     '#type' => 'checkbox',
