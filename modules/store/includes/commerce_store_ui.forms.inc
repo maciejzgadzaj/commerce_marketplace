@@ -324,7 +324,7 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
   // store type is configured to create a new revision by default.
   $form['revision_information'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Revision information'),
+    '#title' => t('Change history'),
     '#collapsible' => TRUE,
     '#collapsed' => empty($store->store_id) || empty($store_type['revision']),
     '#group' => 'additional_settings',
