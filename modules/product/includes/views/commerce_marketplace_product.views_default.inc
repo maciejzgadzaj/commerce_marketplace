@@ -90,6 +90,21 @@ function commerce_marketplace_product_views_default_views() {
       'empty_column' => 0,
     ),
   );
+  /* Header: Global: Text area */
+  $link = array(
+    'title' => t('Add a product'),
+    'href' => 'admin/commerce/products/add',
+  );
+  $links = array(array(
+    '#theme' => 'menu_local_action',
+    '#link' => $link,
+  ));
+  $handler->display->display_options['header']['area']['id'] = 'area';
+  $handler->display->display_options['header']['area']['table'] = 'views';
+  $handler->display->display_options['header']['area']['field'] = 'area';
+  $handler->display->display_options['header']['area']['empty'] = TRUE;
+  $handler->display->display_options['header']['area']['content'] = theme('ctools_menu_local_actions_wrapper', array('links' => $links));
+  $handler->display->display_options['header']['area']['format'] = 'full_html';
   /* No results behavior: Global: Text area */
   $handler->display->display_options['empty']['area']['id'] = 'area';
   $handler->display->display_options['empty']['area']['table'] = 'views';
