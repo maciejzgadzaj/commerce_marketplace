@@ -58,6 +58,25 @@ function commerce_marketplace_product_form_alter(&$form, &$form_state, $form_id)
 function commerce_marketplace_product_form_commerce_product_ui_product_form_alter(&$form, &$form_state) {
   global $user;
 
+  // If user doesn't have access to product administration
+  // it means they most probably are just a simple merchant.
+  if (!user_access('administer products')) {
+    // In this case, make store selection required.
+    $form['commerce_store'][$form['commerce_store']['#language']][0]['target_id']['#required'] = TRUE;
+
+    // Also if a user owns just one store, add it to the field by default.
+    $query = new EntityFieldQuery();
+    $entities = $query->entityCondition('entity_type', 'commerce_store', '=')
+      ->propertyCondition('status', 1)
+      ->propertyCondition('uid', $user->uid)
+      ->execute();
+    if (isset($entities['commerce_store']) && count($entities['commerce_store']) == 1) {
+      $store_ids = array_keys($entities['commerce_store']);
+      $store = commerce_store_load(reset($store_ids));
+      $form['commerce_store'][$form['commerce_store']['#language']][0]['target_id']['#default_value'] = $store->title . ' (' . $store->store_id . ')';
+    }
+  }
+
   // Form submit/cancel redirect depends on user access rights.
   // We will need it in submit callback as well, let's then store it in form.
   $form['#redirect'] = user_access('administer products') ? 'admin/commerce/products' : 'user/' . $user->uid . '/merchant/products';
