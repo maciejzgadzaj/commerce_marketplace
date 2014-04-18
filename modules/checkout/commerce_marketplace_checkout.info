@@ -5,4 +5,5 @@ dependencies[] = commerce_marketplace
 dependencies[] = commerce_marketplace_cart
 dependencies[] = commerce_marketplace_order
 dependencies[] = commerce_checkout
+dependencies[] = subform
 core = 7.x

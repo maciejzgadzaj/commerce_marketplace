@@ -117,25 +117,51 @@ function commerce_marketplace_checkout_router($order, $checkout_page = NULL) {
 
       // If there are one or more products in the cart...
       if (commerce_line_items_quantity($order_wrapper->commerce_line_items, commerce_product_line_item_types()) > 0) {
+        $form_id = 'commerce_checkout_form_' . $checkout_page['page_id'] . '_' . $group_order->order_id;
+
         if (commerce_marketplace_checkout_repeat($checkout_page['page_id'], 'titles')) {
           $store_name = !empty($group_order->commerce_store) ? $order_wrapper->commerce_store->title->value() : variable_get('site_name', 'Drupal');
-          $return[] = array(
+          $return[$form_id . '_title'] = array(
             '#type' => 'markup',
             '#markup' => '<h2>' . t('Order from @store', array('@store' => $store_name)) . '</h2>',
           );
         }
-        $form_id = 'commerce_checkout_form_' . $checkout_page['page_id'] . '_' . $group_order->order_id;
-        $return[] = drupal_get_form($form_id, $group_order, $checkout_page);
+
+        if (!commerce_marketplace_checkout_repeat($checkout_page['page_id'], 'buttons')) {
+          $return[$form_id] = array(
+            '#type' => 'subform',
+            '#subform_id' => $form_id,
+            '#subform_arguments' => array($group_order, $checkout_page),
+            '#required' => TRUE,
+          );
+        }
+        else {
+          $return[] = drupal_get_form($form_id, $group_order, $checkout_page);
+        }
       }
     }
 
-    return $return;
+    if (!commerce_marketplace_checkout_repeat($checkout_page['page_id'], 'buttons')) {
+      $return['submit_all'] = array(
+        '#type' => 'submit',
+        '#value' => t('Continue to next step'),
+        '#submit' => array('subform_submit_all'),
+      );
+      return drupal_get_form('commerce_marketplace_checkout_subforms_form', $return);
+    }
+    else {
+      return $return;
+    }
   }
   // Default behavior.
   else {
     return drupal_get_form('commerce_checkout_form_' . $checkout_page['page_id'], $order, $checkout_page);
   }
 
+}
+
+function commerce_marketplace_checkout_subforms_form($form, &$form_state, $subforms) {
+  return $subforms;
 }
 
 /**
@@ -338,12 +364,10 @@ function commerce_marketplace_checkout_form_alter(&$form, &$form_state, $form_id
     // to display submit/cancel buttons only at the very end of the page (after
     // the last order from current order group) instead of after each pane set.
     // @see commerce_marketplace_checkout_settings_form()
-    if (
-      !commerce_marketplace_checkout_repeat($form_state['checkout_page']['page_id'], 'buttons')
-      && ($orders = commerce_marketplace_order_group_load($form_state['order']->order_group))
-      && !($form_state['order']->order_id == max(array_keys($orders)))
-    ) {
-      unset($form['buttons']);
+    if (!commerce_marketplace_checkout_repeat($form_state['checkout_page']['page_id'], 'buttons')) {
+      // We still need those buttons for each subform to be correctly submitted,
+      // we just don't want them to be displayed in this case.
+      $form['buttons']['#attributes']['style'] = 'display:none';
     }
   }
 
