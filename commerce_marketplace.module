@@ -54,15 +54,10 @@ function commerce_marketplace_configure_referencing_entity_types() {
 }
 
 /**
- * Implements hook_field_attach_create_bundle().
- *  This is is called whenever a new bundle is created, and we use the hook
- * to ensure that commerce_store is added to new bundles that so merit.
+ * Implements hook_field_attach_create_bundle()
  *
- * @param $entity_type: The entity type to which the bundle is bound.
- * @param $bundle: The name of the newly created bundle.
- *
+ *  Adds commerce_store field to bundles that so merit.
  */
-
 function commerce_marketplace_field_attach_create_bundle($entity_type, $bundle) {
   commerce_marketplace_configure_referencing_entity_types();
 }
