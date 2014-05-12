@@ -36,6 +36,8 @@ function commerce_store_permission() {
 
 /**
  * Return permission names for a given entity type.
+ *
+ * @see commerce_entity_access_permissions()
  */
 function commerce_store_entity_access_permissions($entity_type) {
   $entity_info = entity_get_info($entity_type);
