@@ -113,7 +113,7 @@ function commerce_marketplace_order_views_default_views() {
   $handler->display->display_options['empty']['area']['empty'] = TRUE;
   $handler->display->display_options['empty']['area']['content'] = 'You don\'t have any orders in any of your stores yet.';
   $handler->display->display_options['empty']['area']['format'] = 'filtered_html';
-  /* Relationship: Field: Referenced store */
+  /* Relationship: Entity Reference: Referenced Entity */
   $handler->display->display_options['relationships']['commerce_store_target_id']['id'] = 'commerce_store_target_id';
   $handler->display->display_options['relationships']['commerce_store_target_id']['table'] = 'field_data_commerce_store';
   $handler->display->display_options['relationships']['commerce_store_target_id']['field'] = 'commerce_store_target_id';
