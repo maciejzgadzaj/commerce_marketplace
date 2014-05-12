@@ -16,6 +16,14 @@ function commerce_marketplace_product_views_api() {
 }
 
 /**
+ * Implements hook_query_TAG_alter() for commerce_product_access.
+ */
+function commerce_store_query_commerce_product_access_alter(QueryAlterableInterface $query) {
+  // Make sure a join with commerce_store table is added to the query.
+  commerce_store_entity_access_query_alter($query, 'commerce_product');
+}
+
+/**
  * Implements hook_module_implements_alter().
  *
  * Makes sure this module's implementation of hook_form_FORM_ID_alter for
