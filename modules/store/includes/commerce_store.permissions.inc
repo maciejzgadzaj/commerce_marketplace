@@ -14,6 +14,16 @@ function commerce_store_permission() {
 
   $permissions += commerce_entity_access_permissions('commerce_store');
 
+  // Viewing stores is ok for anyone.
+  unset($permissions['view any commerce_store entity']['restrict access']);
+  // The same applies to all specific commerce_store bundles.
+  $entity_info = entity_get_info('commerce_store');
+  if (!empty($entity_info['entity keys']['bundle'])) {
+    foreach ($entity_info['bundles'] as $bundle_name => $bundle_info) {
+      unset($permissions['view any commerce_store entity of bundle ' . $bundle_name]['restrict access']);
+    }
+  }
+
   // Extra permissions for products and orders in own store(s).
   foreach (array('commerce_product', 'commerce_order') as $entity_type) {
     if (module_exists($entity_type)) {
