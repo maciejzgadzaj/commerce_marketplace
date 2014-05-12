@@ -14,3 +14,11 @@ function commerce_marketplace_line_item_views_api() {
     'path' => drupal_get_path('module', 'commerce_marketplace_line_item') . '/includes/views',
   );
 }
+
+/**
+ * Implements hook_query_TAG_alter() for commerce_line_item_access.
+ */
+function commerce_marketplace_line_item_query_commerce_line_item_access_alter(QueryAlterableInterface $query) {
+  // Make sure a join with commerce_store table is added to the query.
+  commerce_store_entity_access_query_alter($query, 'commerce_line_item', 'commerce_order');
+}

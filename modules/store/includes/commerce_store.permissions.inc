@@ -57,28 +57,14 @@ function commerce_store_entity_access_permissions($entity_type) {
 }
 
 /**
- * Implements hook_query_TAG_alter().
- */
-function commerce_store_query_commerce_order_access_alter(QueryAlterableInterface $query) {
-  // Make sure a join with commerce_store table is added to the query.
-  commerce_store_entity_access_query_alter($query, 'commerce_order');
-}
-
-/**
- * Implements hook_query_TAG_alter().
- */
-function commerce_store_query_commerce_product_access_alter(QueryAlterableInterface $query) {
-  // Make sure a join with commerce_store table is added to the query.
-  commerce_store_entity_access_query_alter($query, 'commerce_product');
-}
-
-/**
  * Another generic implementation (besides commerce_entity_access_query_alter())
  * of hook_query_alter() for selected Drupal Commerce entities. This is just to
  * make sure that for all commerce_order and commerce_product select queries
  * there always is a join with commerce_store table added, so we could call our
  * hook_commerce_entity_access_condition_ENTITY_TYPE_alter() implementations
  * below.
+ *
+ * @see commerce_entity_access_query_alter()
  */
 function commerce_store_entity_access_query_alter(QueryAlterableInterface $query, $entity_type, $base_table = NULL) {
   $tables = &$query->getTables();
@@ -116,7 +102,7 @@ function commerce_store_entity_access_query_alter(QueryAlterableInterface $query
         'field_data_commerce_store',
         'field_data_commerce_store',
         "$base_table_alias.$base_table_primary_key = field_data_commerce_store.entity_id AND field_data_commerce_store.entity_type = :entity_type AND field_data_commerce_store.deleted = :deleted",
-        array(':entity_type' => $entity_type, ':deleted' => 0)
+        array(':entity_type' => $base_table, ':deleted' => 0)
       );
     }
     // Add join with main commerce_store table.
