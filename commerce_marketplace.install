@@ -42,6 +42,11 @@ function commerce_marketplace_install() {
       '%merchant' => COMMERCE_STORE_MERCHANT,
     )));
   }
+
+  // Stores should be viewable by anyone.
+  $permissions = array('view any commerce_store entity');
+  user_role_grant_permissions(DRUPAL_ANONYMOUS_RID, $permissions);
+  user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, $permissions);
 }
 
 /*
