@@ -4,6 +4,7 @@ core = 7.x
 package = Commerce Marketplace
 dependencies[] = commerce
 dependencies[] = entityreference
+dependencies[] = field_formatter_settings
 
 ; Module includes
 files[] = includes/commerce_store.controller.inc
