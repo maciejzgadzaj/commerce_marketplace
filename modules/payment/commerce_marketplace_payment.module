@@ -468,6 +468,22 @@ function commerce_marketplace_payment_form_alter(&$form, &$form_state, $form_id)
     && variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants'
     && !commerce_marketplace_payment_common_enabled_parallel_payment_methods($form_state['orders'])
   ) {
+    // Before the value of $form_state['orders'] is updated to the single order,
+    // let's check how many orders still need to be paid for, and display
+    // a message to the customer if needed (needed = at least one order was
+    // already paid for, but there is at least one still left to be paid for).
+    // Requested in https://drupal.org/node/2259091 d.o. issue.
+    // See commerce_marketplace_payment_pane_settings_form() for message
+    // value configuration.
+    if (
+      ($message = variable_get('commerce_marketplace_payment_pane_unpaid_message'))
+      && ($order_count = commerce_marketplace_order_count($form_state['orders'])) > 1
+      && commerce_marketplace_order_count($form_state['orders'], TRUE) < $order_count
+    ) {
+      drupal_set_message($message, 'status', FALSE);
+    }
+
+    // Now it's ok to update $form_state['orders'] value.
     $form_state['orders'] = array($form_state['order']->order_id => $form_state['order']);
   }
 }

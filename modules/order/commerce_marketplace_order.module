@@ -131,14 +131,23 @@ function commerce_marketplace_order_group_load($order_group) {
  *
  * @param array $orders
  *   An array of orders in the order group.
+ * @param bool $unpaid_only
+ *   A boolean indicating whether to count all orders (FALSE) or only those
+ *   that haven't been paid for yet (TRUE).
  *
  * @return int
  *   A number of non-empty orders in the order group.
  */
-function commerce_marketplace_order_count($orders) {
+function commerce_marketplace_order_count($orders, $unpaid_only = FALSE) {
   $count = 0;
   if (is_array($orders) && !empty($orders)) {
     foreach ($orders as $order) {
+      if ($unpaid_only) {
+        $order_status = commerce_order_status_load($order->status);
+        if (!$order_status['cart']) {
+          continue;
+        }
+      }
       $wrapper = entity_metadata_wrapper('commerce_order', $order);
       if (commerce_line_items_quantity($wrapper->commerce_line_items, commerce_product_line_item_types()) > 0) {
         $count++;
