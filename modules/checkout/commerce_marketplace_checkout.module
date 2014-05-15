@@ -145,9 +145,12 @@ function commerce_marketplace_checkout_router($order, $checkout_page = NULL) {
       $return['submit_all'] = array(
         '#type' => 'submit',
         '#value' => t('Continue to next step'),
-        '#submit' => array('subform_submit_all'),
+        '#submit' => array(
+          'subform_submit_all',
+          'commerce_marketplace_checkout_subforms_form_submit',
+        ),
       );
-      return drupal_get_form('commerce_marketplace_checkout_subforms_form', $return);
+      return drupal_get_form('commerce_marketplace_checkout_subforms_form', $return, $orders);
     }
     else {
       return $return;
@@ -160,8 +163,28 @@ function commerce_marketplace_checkout_router($order, $checkout_page = NULL) {
 
 }
 
+/**
+ * Form constructor for the subform form.
+ *
+ * @see commerce_marketplace_checkout_router()
+ * @see commerce_marketplace_checkout_subforms_form_submit()
+ */
 function commerce_marketplace_checkout_subforms_form($form, &$form_state, $subforms) {
   return $subforms;
+}
+
+/**
+ * Form submission handler for the commerce_marketplace_checkout_subforms_form().
+ *
+ * @see commerce_marketplace_checkout_router()
+ * @see commerce_marketplace_checkout_subforms_form()
+ */
+function commerce_marketplace_checkout_subforms_form_submit(&$form, &$form_state) {
+  $order = reset($form_state['build_info']['args'][1]);
+  // Reload the order object, as its status might have been updated on the way.
+  $order = commerce_order_load($order->order_id);
+  // Go to the relevant checkout page.
+  drupal_goto(commerce_checkout_order_uri($order));
 }
 
 /**
