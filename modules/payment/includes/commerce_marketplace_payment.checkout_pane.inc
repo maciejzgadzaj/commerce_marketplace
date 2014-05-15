@@ -81,10 +81,19 @@ function commerce_marketplace_payment_pane_settings_form($checkout_pane) {
     '#default_value' => variable_get('commerce_marketplace_payment_pane_pay_label', 'Pay for this order'),
   );
 
+  $form['commerce_marketplace_payment_pane_unpaid_message'] = array(
+    '#type' => 'textarea',
+    '#title' => t('<em>Unpaid order(s) left</em> message'),
+    '#description' => t('Message to be displayed on top of the <em>Review orders</em> checkout page when at least one order has been already paid, but there is still at least one order left to be paid for. Leave empty for no message.'),
+    '#default_value' => variable_get('commerce_marketplace_payment_pane_unpaid_message', 'There are still orders left to be paid for. Please scroll down to see them.'),
+    '#rows' => 2,
+  );
+
   $form['commerce_marketplace_payment_pane_paid'] = array(
     '#type' => 'textarea',
     '#title' => t('Paid order info'),
     '#default_value' => variable_get('commerce_marketplace_payment_pane_paid', 'This order has been already paid.'),
+    '#description' => t('Message to be displayed on the <em>Review orders</em> checkout page in the <em>Marketplace: Payment</em> pane when a specific order has already been paid for.'),
     '#rows' => 2,
   );
 
