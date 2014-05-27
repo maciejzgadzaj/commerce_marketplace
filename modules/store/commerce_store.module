@@ -112,12 +112,12 @@ function commerce_store_entity_info() {
       'bundles' => array(),
       'load hook' => 'commerce_store_load',
       'view modes' => array(
-        'administrator' => array(
-          'label' => t('Administrator'),
+        'full' => array(
+          'label' => t('Full'),
           'custom settings' => FALSE,
         ),
-        'customer' => array(
-          'label' => t('Customer'),
+        'teaser' => array(
+          'label' => t('Teaser'),
           'custom settings' => FALSE,
         ),
       ),
@@ -228,6 +228,9 @@ function commerce_store_file_download_access($field, $entity_type, $entity) {
 
 /**
  * Implements hook_field_extra_fields().
+ *
+ * See https://drupal.org/node/1471706 for why there is no label configuration
+ * for these pseudo fields on the entity type Manage Display admin page.
  */
 function commerce_store_field_extra_fields() {
   $extra = array();
@@ -529,7 +532,7 @@ function commerce_store_get_properties($store, array $options, $name) {
     case 'view_url':
       return url('store/' . $store->store_id, $options);
     case 'edit_url':
-      return url('admin/commerce/stores/' . $store->store_id . '/edit', $options);
+      return url('store/' . $store->store_id . '/edit', $options);
   }
 }
 

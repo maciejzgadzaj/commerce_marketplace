@@ -37,6 +37,6 @@ class commerce_store_ui_handler_field_store_link extends views_handler_field {
     $text = !empty($this->options['text']) ? $this->options['text'] : t('view');
     $store_id = $this->get_value($values, 'store_id');
 
-    return l($text, 'admin/commerce/stores/' . $store_id);
+    return l($text, 'store/' . $store_id);
   }
 }

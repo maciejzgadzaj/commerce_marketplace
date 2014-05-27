@@ -11,9 +11,9 @@
 function commerce_store_ui_menu() {
   $items = array();
 
-  // Note: admin/commerce/stores is defined by a default View.
+  // Note: /admin/commerce/stores is defined by a default View.
 
-  $items['admin/commerce/stores/add'] = array(
+  $items['store/add'] = array(
     'title' => 'Add a store',
     'description' => 'Add a new store for sale.',
     'page callback' => 'commerce_store_ui_add_page',
@@ -24,7 +24,7 @@ function commerce_store_ui_menu() {
 
   foreach (commerce_store_types() as $type => $store_type) {
     $type_arg = commerce_store_type_to_arg($type);
-    $items['admin/commerce/stores/add/' . $type_arg] = array(
+    $items['store/add/' . $type_arg] = array(
       'title' => 'Create !name',
       'title arguments' => array('!name' => $store_type['name']),
       'description' => $store_type['description'],
@@ -36,34 +36,42 @@ function commerce_store_ui_menu() {
     );
   }
 
-  $items['admin/commerce/stores/%commerce_store'] = array(
+  $items['store/%commerce_store'] = array(
     'title callback' => 'commerce_store_ui_store_title',
-    'title arguments' => array(3),
-    'page callback' => 'commerce_store_ui_store_form_wrapper',
-    'page arguments' => array(3),
+    'title arguments' => array(1),
+    'page callback' => 'commerce_store_ui_store_view',
+    'page arguments' => array(1),
     'access callback' => 'commerce_store_access',
-    'access arguments' => array('update', 3),
+    'access arguments' => array('view', 1),
+  );
+
+  $items['store/%commerce_store/view'] = array(
+    'title' => 'View',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+
+  $items['store/%commerce_store/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'commerce_store_ui_store_form_wrapper',
+    'page arguments' => array(1),
+    'access callback' => 'commerce_store_access',
+    'access arguments' => array('update', 1),
     'weight' => 0,
+    'type' => MENU_LOCAL_TASK,
     'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
     'file' => 'includes/commerce_store_ui.stores.inc',
   );
 
-  $items['admin/commerce/stores/%commerce_store/edit'] = array(
-    'title' => 'Edit',
-    'type' => MENU_DEFAULT_LOCAL_TASK,
-    'weight' => -10,
-    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
-  );
-
-  $items['admin/commerce/stores/%commerce_store/delete'] = array(
+  $items['store/%commerce_store/delete'] = array(
     'title' => 'Delete',
     'page callback' => 'commerce_store_ui_store_delete_form_wrapper',
-    'page arguments' => array(3),
+    'page arguments' => array(1),
     'access callback' => 'commerce_store_access',
-    'access arguments' => array('update', 3),
+    'access arguments' => array('update', 1),
     'type' => MENU_LOCAL_TASK,
     'weight' => 20,
-    'context' => MENU_CONTEXT_INLINE,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
     'file' => 'includes/commerce_store_ui.stores.inc',
   );
 
@@ -114,15 +122,6 @@ function commerce_store_ui_menu() {
       );
     }
   }
-
-  $items['store/%commerce_store'] = array(
-    'title callback' => 'commerce_store_ui_store_title',
-    'title arguments' => array(1),
-    'page callback' => 'commerce_store_ui_store_view',
-    'page arguments' => array(1),
-    'access callback' => 'commerce_store_access',
-    'access arguments' => array('view', 1),
-  );
 
   return $items;
 }
@@ -190,9 +189,9 @@ function commerce_store_ui_menu_alter(&$items) {
  * Implements hook_menu_local_tasks_alter().
  */
 function commerce_store_ui_menu_local_tasks_alter(&$data, $router_item, $root_path) {
-  // Add action link 'admin/commerce/stores/add' on 'admin/commerce/stores'.
+  // Add action link 'store/add' on 'admin/commerce/stores'.
   if ($root_path == 'admin/commerce/stores') {
-    $item = menu_get_item('admin/commerce/stores/add');
+    $item = menu_get_item('store/add');
     if ($item['access']) {
       $data['actions']['output'][] = array(
         '#theme' => 'menu_local_action',
@@ -270,7 +269,7 @@ function commerce_store_ui_entity_info_alter(&$entity_info) {
 
   // Add callbacks and urls for administer translations.
   $entity_info['commerce_store']['translation']['entity_translation'] += array(
-    'base path' => 'admin/commerce/stores/%commerce_store',
+    'base path' => 'store/%commerce_store',
   );
 
   // Expose the admin UI for store fields.
@@ -299,7 +298,7 @@ function commerce_store_ui_store_uri($store) {
   // Otherwise return an admin URI if the user has permission.
   if (commerce_store_access('update', $store)) {
     return array(
-      'path' => 'admin/commerce/stores/' . $store->store_id,
+      'path' => 'store/' . $store->store_id,
     );
   }
 
@@ -460,12 +459,12 @@ function commerce_store_ui_views_api() {
  * @param $store
  *   A fully loaded store object.
  * @param $view_mode
- *   The view mode for displaying the store, 'administrator' or 'customer'.
+ *   The view mode for displaying the store, 'full' or 'teaser'.
  *
  * @return
  *   An array as expected by drupal_render().
  */
-function commerce_store_ui_store_view($store, $view_mode = 'administrator') {
+function commerce_store_ui_store_view($store, $view_mode = 'full') {
   drupal_add_css(drupal_get_path('module', 'commerce_store') . '/theme/commerce_store.theme.css');
   return entity_view('commerce_store', array($store->store_id => $store), $view_mode, NULL, TRUE);
 }

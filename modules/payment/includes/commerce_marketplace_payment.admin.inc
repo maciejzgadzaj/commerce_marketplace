@@ -39,7 +39,7 @@ function commerce_marketplace_payment_methods_overview($store) {
 
   $output = '<p>' . t('Disabled payment methods can be enabled in the <em>Payment methods</em> section on the <a href="@url">store edit page</a>.', array(
       '%title' => $store->title,
-      '@url' => url('admin/commerce/stores/' . $store->store_id, array(
+      '@url' => url('store/' . $store->store_id . '/edit', array(
           'fragment' => 'edit-payment-methods',
           'query' => drupal_get_destination(),
         )),
@@ -51,7 +51,7 @@ function commerce_marketplace_payment_methods_overview($store) {
   $output .= '<ul class="' . $class . '">';
   foreach ($payment_methods as $method_id => $payment_method) {
     // List only those payment methods which are enabled for this store.
-    $method = !empty($store_enabled_methods[$method_id]) ? l($payment_method['title'], 'admin/commerce/stores/' . $store->store_id . '/payment_methods/' . $method_id) : $payment_method['title'];
+    $method = !empty($store_enabled_methods[$method_id]) ? l($payment_method['title'], 'store/' . $store->store_id . '/edit/payment_methods/' . $method_id) : $payment_method['title'];
     $output .= '<li class="leaf">' . $method;
     if (!$compact && isset($payment_method['description'])) {
       $output .= '<div class="description">' . filter_xss_admin($payment_method['description']) . '</div>';
@@ -81,7 +81,7 @@ function commerce_marketplace_payment_method_form_wrapper($store, $payment_metho
   if (empty($store->data['payment_methods']['enabled'][$payment_method_id])) {
     return t('This payment method is not enabled for %title store. You can enable it in the <em>Payment methods</em> section on the <a href="@url">store edit page</a>.', array(
       '%title' => $store->title,
-      '@url' => url('admin/commerce/stores/' . $store->store_id, array(
+      '@url' => url('store/' . $store->store_id . '/edit', array(
           'fragment' => 'edit-payment-methods',
           'query' => drupal_get_destination(),
         )),

@@ -299,7 +299,7 @@ function commerce_store_ui_views_data() {
   $data['commerce_store']['view_store'] = array(
     'field' => array(
       'title' => t('Link'),
-      'help' => t('Provide a simple link to the administrator view of the store.'),
+      'help' => t('Provide a simple link to the view page of the store.'),
       'handler' => 'commerce_store_ui_handler_field_store_link',
     ),
   );

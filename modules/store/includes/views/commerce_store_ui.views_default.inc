@@ -94,7 +94,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['empty']['empty_text']['table'] = 'commerce_store';
   $handler->display->display_options['empty']['empty_text']['field'] = 'empty_text';
   $handler->display->display_options['empty']['empty_text']['empty'] = TRUE;
-  $handler->display->display_options['empty']['empty_text']['add_path'] = 'admin/commerce/stores/add';
+  $handler->display->display_options['empty']['empty_text']['add_path'] = 'store/add';
   /* Relationship: Commerce Store: Owner */
   $handler->display->display_options['relationships']['uid']['id'] = 'uid';
   $handler->display->display_options['relationships']['uid']['table'] = 'commerce_store';
@@ -110,7 +110,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'commerce_store';
   $handler->display->display_options['fields']['title']['field'] = 'title';
-  $handler->display->display_options['fields']['title']['link_to_store'] = 'admin';
+  $handler->display->display_options['fields']['title']['link_to_store'] = 1;
   /* Field: Commerce Store: Type */
   $handler->display->display_options['fields']['type']['id'] = 'type';
   $handler->display->display_options['fields']['type']['table'] = 'commerce_store';
@@ -198,7 +198,7 @@ function commerce_store_ui_views_default_views() {
   /* Header: Global: Text area */
   $link = array(
     'title' => t('Add a store'),
-    'href' => 'admin/commerce/stores/add',
+    'href' => 'store/add',
   );
   $links = array(array(
     '#theme' => 'menu_local_action',
@@ -227,7 +227,7 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['fields']['title']['id'] = 'title';
   $handler->display->display_options['fields']['title']['table'] = 'commerce_store';
   $handler->display->display_options['fields']['title']['field'] = 'title';
-  $handler->display->display_options['fields']['title']['link_to_store'] = 'customer';
+  $handler->display->display_options['fields']['title']['link_to_store'] = 1;
   /* Field: Commerce Store: Type */
   $handler->display->display_options['fields']['type']['id'] = 'type';
   $handler->display->display_options['fields']['type']['table'] = 'commerce_store';
@@ -282,6 +282,50 @@ function commerce_store_ui_views_default_views() {
   $handler->display->display_options['menu']['title'] = 'Stores';
   $handler->display->display_options['menu']['weight'] = '10';
   $handler->display->display_options['menu']['context'] = 0;
+
+  $views[$view->name] = $view;
+
+  /**
+   * Merchant stores.
+   * user/%/merchant/stores
+   */
+  $view = new view();
+  $view->name = 'stores';
+  $view->description = '';
+  $view->tag = 'default';
+  $view->base_table = 'commerce_store';
+  $view->human_name = 'Stores';
+  $view->core = 7;
+  $view->api_version = '3.0';
+  $view->disabled = FALSE; /* Edit this to true to make a default view disabled initially */
+
+  /* Display: Master */
+  $handler = $view->new_display('default', 'Master', 'default');
+  $handler->display->display_options['title'] = 'Stores';
+  $handler->display->display_options['use_more_always'] = FALSE;
+  $handler->display->display_options['access']['type'] = 'perm';
+  $handler->display->display_options['access']['perm'] = 'view any commerce_store entity';
+  $handler->display->display_options['cache']['type'] = 'none';
+  $handler->display->display_options['query']['type'] = 'views_query';
+  $handler->display->display_options['exposed_form']['type'] = 'basic';
+  $handler->display->display_options['pager']['type'] = 'full';
+  $handler->display->display_options['pager']['options']['items_per_page'] = '10';
+  $handler->display->display_options['style_plugin'] = 'default';
+  $handler->display->display_options['row_plugin'] = 'entity';
+  $handler->display->display_options['row_options']['view_mode'] = 'teaser';
+  /* Field: Commerce Store: Store ID */
+  $handler->display->display_options['fields']['store_id']['id'] = 'store_id';
+  $handler->display->display_options['fields']['store_id']['table'] = 'commerce_store';
+  $handler->display->display_options['fields']['store_id']['field'] = 'store_id';
+  /* Sort criterion: Commerce Store: Updated date */
+  $handler->display->display_options['sorts']['changed']['id'] = 'changed';
+  $handler->display->display_options['sorts']['changed']['table'] = 'commerce_store';
+  $handler->display->display_options['sorts']['changed']['field'] = 'changed';
+  $handler->display->display_options['sorts']['changed']['order'] = 'DESC';
+
+  /* Display: Stores page */
+  $handler = $view->new_display('page', 'Stores page', 'stores_page');
+  $handler->display->display_options['path'] = 'store';
 
   $views[$view->name] = $view;
 

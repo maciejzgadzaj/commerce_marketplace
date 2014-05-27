@@ -191,7 +191,7 @@ function commerce_marketplace_create_instance($field_name, $entity_type, $bundle
     );
 
     // Set the default display formatters for various view modes.
-    foreach (array('default', 'customer', 'administrator') as $view_mode) {
+    foreach (array('default', 'full', 'teaser') as $view_mode) {
       $instance['display'][$view_mode] = array(
         'label' => 'hidden',
         'settings' => array(),

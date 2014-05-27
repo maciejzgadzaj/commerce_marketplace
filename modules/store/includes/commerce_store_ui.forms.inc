@@ -359,7 +359,7 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
     '#description' => t('Provide an explanation of the changes you are making. This will provide a meaningful history of changes to this store.'),
   );
 
-  // Node options for administrators
+  // Store options for administrators.
   $form['options'] = array(
     '#type' => 'fieldset',
     '#access' => empty($store->store_id) || commerce_store_access('update', $store),
@@ -387,7 +387,7 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
     '#weight' => 400,
   );
 
-  // Simply use default language
+  // Simply use default language.
   $form['language'] = array(
     '#type' => 'value',
     '#value' => $langcode,
@@ -510,7 +510,7 @@ function commerce_store_ui_store_form_submit($form, &$form_state) {
   $submit_element = array_pop($array_parents);
 
   if ($submit_element == 'save_continue') {
-    $form_state['redirect'] = 'admin/commerce/stores/add/' . commerce_store_type_to_arg($store->type);
+    $form_state['redirect'] = 'store/add/' . commerce_store_type_to_arg($store->type);
   }
   else {
     $form_state['redirect'] = $form['#redirect'];
@@ -551,6 +551,8 @@ function commerce_store_ui_store_delete_form($form, &$form_state, $store) {
  * Submit callback for commerce_store_ui_store_delete_form().
  */
 function commerce_store_ui_store_delete_form_submit($form, &$form_state) {
+  global $user;
+
   $store = $form_state['store'];
 
   if (commerce_store_delete($store->store_id)) {
@@ -561,5 +563,5 @@ function commerce_store_ui_store_delete_form_submit($form, &$form_state) {
     drupal_set_message(t('%title could not be deleted.', array('%title' => $store->title)), 'error');
   }
 
-  $form_state['redirect'] = 'admin/commerce/stores';
+  $form_state['redirect'] = user_access('administer stores') ? 'admin/commerce/stores' : 'user/' . $user->uid . '/merchant/stores';
 }

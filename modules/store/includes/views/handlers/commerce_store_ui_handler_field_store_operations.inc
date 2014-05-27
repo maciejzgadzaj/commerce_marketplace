@@ -37,7 +37,7 @@ class commerce_store_ui_handler_field_store_operations extends views_handler_fie
     $store_id = $this->get_value($values, 'store_id');
 
     // Get the operations links.
-    $links = menu_contextual_links('commerce-store', 'admin/commerce/stores', array($store_id));
+    $links = menu_contextual_links('commerce-store', 'store', array($store_id));
 
     if (!empty($links)) {
       // Add the destination to the links if specified.
