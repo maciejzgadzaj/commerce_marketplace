@@ -295,14 +295,10 @@ function commerce_store_ui_store_uri($store) {
     return $uri;
   }
 
-  // Otherwise return an admin URI if the user has permission.
-  if (commerce_store_access('update', $store)) {
-    return array(
-      'path' => 'store/' . $store->store_id,
-    );
-  }
-
-  return NULL;
+  // Otherwise return default store path.
+  return array(
+    'path' => 'store/' . $store->store_id,
+  );
 }
 
 /**
