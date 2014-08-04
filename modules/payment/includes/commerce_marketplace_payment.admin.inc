@@ -51,7 +51,7 @@ function commerce_marketplace_payment_methods_overview($store) {
   $output .= '<ul class="' . $class . '">';
   foreach ($payment_methods as $method_id => $payment_method) {
     // List only those payment methods which are enabled for this store.
-    $method = !empty($store_enabled_methods[$method_id]) ? l($payment_method['title'], 'store/' . $store->store_id . '/edit/payment_methods/' . $method_id) : $payment_method['title'];
+    $method = !empty($store_enabled_methods[$method_id]) ? l($payment_method['title'], 'store/' . $store->store_id . '/payment-methods/' . $method_id) : $payment_method['title'];
     $output .= '<li class="leaf">' . $method;
     if (!$compact && isset($payment_method['description'])) {
       $output .= '<div class="description">' . filter_xss_admin($payment_method['description']) . '</div>';
