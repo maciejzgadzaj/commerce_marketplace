@@ -292,7 +292,7 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
   $owner = user_load($store->uid);
   $form['owner'] = array(
     '#type' => 'fieldset',
-    '#access' => user_access('administer stores'),
+    '#access' => user_access('administer commerce_store entities'),
     '#title' => t('Store owner'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
@@ -409,10 +409,10 @@ function commerce_store_ui_store_form($form, &$form_state, $store) {
 
   // Form submit/cancel redirect depends on user access rights.
   // We will need it in submit callback as well, let's then store it in form.
-  $form['#redirect'] = user_access('administer stores') ? 'admin/commerce/stores' : 'user/' . $user->uid . '/merchant/stores';
+  $form['#redirect'] = user_access('administer commerce_store entities') ? 'admin/commerce/stores' : 'user/' . $user->uid . '/merchant/stores';
 
   // Add the 'Save and add another' button for new stores for admin users.
-  if (empty($store->store_id) && user_access('administer stores')) {
+  if (empty($store->store_id) && user_access('administer commerce_store entities')) {
     $form['actions']['save_continue'] = array(
       '#type' => 'submit',
       '#value' => t('Save and add another'),
@@ -563,5 +563,5 @@ function commerce_store_ui_store_delete_form_submit($form, &$form_state) {
     drupal_set_message(t('%title could not be deleted.', array('%title' => $store->title)), 'error');
   }
 
-  $form_state['redirect'] = user_access('administer stores') ? 'admin/commerce/stores' : 'user/' . $user->uid . '/merchant/stores';
+  $form_state['redirect'] = user_access('administer commerce_store entities') ? 'admin/commerce/stores' : 'user/' . $user->uid . '/merchant/stores';
 }

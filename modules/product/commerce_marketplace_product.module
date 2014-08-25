@@ -68,7 +68,7 @@ function commerce_marketplace_product_form_commerce_product_ui_product_form_alte
 
   // If user doesn't have access to product administration
   // it means they most probably are just a simple merchant.
-  if (!user_access('administer products')) {
+  if (!user_access('administer commerce_product entities')) {
     // In this case, make store selection required.
     $form['commerce_store'][$form['commerce_store']['#language']][0]['target_id']['#required'] = TRUE;
 
@@ -87,7 +87,7 @@ function commerce_marketplace_product_form_commerce_product_ui_product_form_alte
 
   // Form submit/cancel redirect depends on user access rights.
   // We will need it in submit callback as well, let's then store it in form.
-  $form['#redirect'] = user_access('administer products') ? 'admin/commerce/products' : 'user/' . $user->uid . '/merchant/products';
+  $form['#redirect'] = user_access('administer commerce_product entities') ? 'admin/commerce/products' : 'user/' . $user->uid . '/merchant/products';
 
   // Add a submit handler to the save button to modify default redirects.
   $form['actions']['submit']['#submit'][] = 'commerce_marketplace_product_product_ui_form_submit';
