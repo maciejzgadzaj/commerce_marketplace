@@ -396,7 +396,7 @@ function commerce_store_type_to_arg($type) {
  * @return
  *   A store object with all default fields initialized.
  */
-function commerce_store_new($type = '') {
+function commerce_store_new($type = 'store') {
   return entity_get_controller('commerce_store')->create(array('type' => $type));
 }
 
