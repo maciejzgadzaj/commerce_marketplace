@@ -218,7 +218,13 @@ function commerce_marketplace_payment_enabled_methods() {
 
   // Create a dummy order and invoke the payment methods event that will
   // populate it with an array of method IDs for available payment methods.
-  $order = (object) array('payment_methods' => array());
+  $info = entity_get_info('commerce_order');
+  $bundle_key = $info['bundle keys']['bundle'];
+  $bundles = array_keys($info['bundles']);
+  $order = (object) array(
+    $bundle_key => reset($bundles),
+    'payment_methods' => array(),
+  );
   rules_invoke_all('commerce_payment_methods', $order);
 
   // Return only enabled payment method definitions.
