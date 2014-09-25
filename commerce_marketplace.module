@@ -56,10 +56,16 @@ function commerce_marketplace_configure_referencing_entity_types() {
 /**
  * Implements hook_field_attach_create_bundle()
  *
+<<<<<<< HEAD
  * Adds commerce_store field to bundles that so merit.
  */
 function commerce_marketplace_field_attach_create_bundle($entity_type, $bundle) {
   drupal_static_reset('commerce_product_types');
+=======
+ *  Adds commerce_store field to bundles that so merit.
+ */
+function commerce_marketplace_field_attach_create_bundle($entity_type, $bundle) {
+>>>>>>> 539ff377dc3ee95feba367bfd2f2e844ad70ef1a
   commerce_marketplace_configure_referencing_entity_types();
 }
 
