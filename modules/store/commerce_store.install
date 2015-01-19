@@ -13,7 +13,9 @@ function commerce_store_requirements($phase) {
   $t = get_t();
 
   // During installation make sure that commerce_store entity doesn't exist yet.
-  if ($phase == 'install') {
+  // Do not try that during the Drupal installation, as it will result in
+  // PDOException, as database tables (specifically 'system') don't exist yet.
+  if ($phase == 'install' && !drupal_installation_attempted()) {
     $entities = entity_get_info();
     if (isset($entities['commerce_store'])) {
       $requirements['commerce_store'] = array(
