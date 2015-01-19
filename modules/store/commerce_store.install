@@ -200,3 +200,57 @@ function commerce_store_schema() {
 
   return $schema;
 }
+
+/**
+ * Implements hook_install().
+ */
+function commerce_store_install() {
+  // Create new "merchant" role if it doesn't exist yet.
+  module_load_include('module', 'commerce_store');
+  if (!user_role_load_by_name(COMMERCE_STORE_MERCHANT)) {
+    $merchant_role = (object) array(
+      'name' => COMMERCE_STORE_MERCHANT,
+      'weight' => 1,
+    );
+    user_role_save($merchant_role);
+
+    // Grant permissions for stores of any type.
+    $permissions = array(
+      'view own commerce_store entities',
+      'edit own commerce_store entities',
+      'create commerce_store entities',
+    );
+    // Also grant permissions for all existing bundles.
+    foreach (array_keys(commerce_store_types()) as $bundle) {
+      $permissions[] = 'view own commerce_store entities of bundle ' . $bundle;
+      $permissions[] = 'edit own commerce_store entities of bundle ' . $bundle;
+      $permissions[] = 'create commerce_store entities of bundle ' . $bundle;
+    }
+    // Grant required permissions to the "merchant" role.
+    user_role_grant_permissions($merchant_role->rid, $permissions);
+
+    drupal_set_message(t('New %merchant role was added and required store-related user permissions were granted to this role. It is advised to review them on the <a href="@permissions_user">Permissions page</a>.', array(
+      '@permissions_user' => url('admin/people/permissions', array('fragment' => 'module-commerce_store')),
+      '%merchant' => COMMERCE_STORE_MERCHANT,
+    )));
+  }
+
+  // Stores should be viewable by anyone.
+  $permissions = array('view any commerce_store entity');
+  user_role_grant_permissions(DRUPAL_ANONYMOUS_RID, $permissions);
+  user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, $permissions);
+}
+
+/*
+ * Implements hook_uninstall().
+ */
+function commerce_store_uninstall() {
+  // Delete the field referencing a commerce store and all its instances.
+  module_load_include('module', 'commerce');
+  commerce_delete_instances('commerce_store');
+  commerce_delete_field('commerce_store');
+
+  // Delete the "merchant" user role.
+  module_load_include('module', 'commerce_store');
+  user_role_delete(COMMERCE_STORE_MERCHANT);
+}
