@@ -259,7 +259,7 @@ function commerce_marketplace_cart_order_ids($uid = 0, $store_id = NULL) {
 
   // We want the same behavior as in standard DC - return only orders from the
   // most recent order group.
-  $order_group_id = db_query('SELECT MAX(order_group) FROM {commerce_order} WHERE uid = :uid AND status IN (:status_ids) ORDER BY order_group DESC', array(
+  $order_group_id = db_query('SELECT MAX(order_group) FROM {commerce_order} WHERE uid = :uid AND status IN (:status_ids) GROUP BY order_group ORDER BY order_group DESC', array(
     ':uid' => $uid,
     ':status_ids' => $status_ids,
   ))->fetchField();
