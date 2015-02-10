@@ -211,7 +211,7 @@ function commerce_marketplace_cart_order_ids($uid = 0, $store_id = NULL) {
   // uid. Instead of invoking hook_commerce_cart_order_id() directly, we invoke
   // it in each module implementing the hook and return the first valid order ID
   // returned (if any).
-  foreach (module_implements('commerce_cart_order_id') as $module) {
+  foreach (module_implements('commerce_marketplace_cart_order_id') as $module) {
     $order_ids = module_invoke($module, 'commerce_marketplace_cart_order_ids', $uid, $store_id);
 
     // If a hook said the user should not have a cart, that overrides any other
