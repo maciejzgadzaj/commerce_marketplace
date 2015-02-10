@@ -256,6 +256,15 @@ function commerce_marketplace_cart_order_ids($uid = 0, $store_id = NULL) {
   elseif ($store_id !== NULL) {
     $query->fieldCondition('commerce_store', 'target_id', $store_id, '=');
   }
+
+  // We want the same behavior as in standard DC - return only orders from the
+  // most recent order group.
+  $order_group_id = db_query('SELECT MAX(order_group) FROM {commerce_order} WHERE uid = :uid AND status IN (:status_ids) ORDER BY order_group DESC', array(
+    ':uid' => $uid,
+    ':status_ids' => $status_ids,
+  ))->fetchField();
+  $query->propertyCondition('order_group', $order_group_id);
+
   // For anonymous users look for a shopping cart order ID in the session.
   if (!$uid) {
     $query->propertyCondition('order_id', commerce_cart_order_session_order_ids(), 'IN');
