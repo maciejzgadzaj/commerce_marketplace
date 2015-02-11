@@ -195,6 +195,7 @@ function commerce_marketplace_create_instance($field_name, $entity_type, $bundle
     if ($entity_type == 'commerce_product') {
       $instance['commerce_marketplace_cart_settings'] = array(
         'order_splitter_field' => 1,
+        'cart_splitter_field' => 0,
       );
     }
 

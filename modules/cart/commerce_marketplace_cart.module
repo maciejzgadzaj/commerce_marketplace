@@ -84,6 +84,82 @@ function commerce_marketplace_cart_view() {
 }
 
 /**
+ * Implements hook_views_pre_view().
+ *
+ * @see commerce_marketplace_cart_views_pre_build()
+ */
+function commerce_marketplace_cart_views_pre_view(&$view, &$display_id, &$args) {
+  if ($view->name == 'commerce_cart_form' || $view->name == 'commerce_cart_summary') {
+    $cart_split_fields = commerce_marketplace_cart_get_splitter_field_instances(NULL, 'cart');
+    if (!empty($cart_split_fields)) {
+
+      foreach ($cart_split_fields as $field_name => $field_instance) {
+        // If the field does not exist in the view, we want to add it.
+        if (empty($view->field[$field_name])) {
+
+          // Get database table name for this field.
+          $field = field_info_field($field_name);
+          $db_table_name = _field_sql_storage_tablename($field);
+
+          // We don't want this new field to be visible anywhere.
+          $options = array(
+            'label' => $field_instance['label'],
+            'exclude' => TRUE,
+          );
+
+          // Add the field to the view.
+          $view->add_item($view->current_display, 'field', $db_table_name, $field_name, $options);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_views_pre_build().
+ *
+ * @see commerce_marketplace_cart_views_pre_view()
+ */
+function commerce_marketplace_cart_views_pre_build(&$view) {
+  if ($view->name == 'commerce_cart_form' || $view->name == 'commerce_cart_summary') {
+
+    $cart_split_fields = commerce_marketplace_cart_get_splitter_field_instances(NULL, 'cart');
+    if (!empty($cart_split_fields)) {
+
+      // Helper variable to avoid using such long string multiple times.
+      $style_options = &$view->display[$view->current_display]->handler->options['style_options'];
+
+      // Create an array containing just existing grouping field names,
+      // so it is easy to search through it and decide whether our new
+      // cart splitting should be added there or not.
+      $existing_grouping_field_names = array();
+      if (!empty($style_options['grouping'])) {
+        foreach ($style_options['grouping'] as $existing_grouping) {
+          $existing_grouping_field_names[] = $existing_grouping['field'];
+        }
+      }
+      else {
+        $style_options['grouping'] = array();
+      }
+
+      // Loop through all cart splitting fields, and add them
+      // as view's grouping fields if they are not already there.
+      foreach ($cart_split_fields as $field_name => $field_instance) {
+        if (!in_array($field_name, $existing_grouping_field_names)) {
+          $style_options['grouping'][] = array(
+            'field' => $field_name,
+            // Use rendered output to group rows.
+            'rendered' => 1,
+            // Remove tags from rendered output.
+            'rendered_strip' => 0,
+          );
+        }
+      }
+    }
+  }
+}
+
+/**
  * Implements hook_block_view_alter().
  *
  * Alters 'Shopping cart' block to display all non-empty orders from the order
@@ -627,6 +703,17 @@ function commerce_marketplace_cart_form_field_ui_field_edit_form_alter(&$form, &
       '#title' => t('Enable this field to function as an order splitter field.'),
       '#description' => t('If two products with different field values will be added to the shopping cart, two separate orders will be created for them.'),
       '#default_value' => $commerce_marketplace_cart_settings['order_splitter_field'],
+    );
+    $form['instance']['commerce_marketplace_cart_settings']['cart_splitter_field'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable this field to function as a shopping cart splitter field.'),
+      '#description' => t('If two products with different field values belong to the same order, they will be displayed in separate cart blocks both on the <em>Shopping cart</em> and the <em>Checkout</em> pages.'),
+      '#default_value' => $commerce_marketplace_cart_settings['cart_splitter_field'],
+      '#states' => array(
+        'visible' => array(
+          ':input[name="instance[commerce_marketplace_cart_settings][order_splitter_field]"]' => array('checked' => TRUE),
+        ),
+      ),
     );
 
     $form['#submit'][] = 'commerce_marketplace_cart_field_ui_field_edit_form_submit';
