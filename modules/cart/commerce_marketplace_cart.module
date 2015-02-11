@@ -439,29 +439,15 @@ function commerce_marketplace_cart_product_add($uid, $line_item, $combine = TRUE
   $conditions = array();
 
   // Loop through all the field instances on that product type.
-  foreach (field_info_instances('commerce_product', $product->type) as $field_name => $instance) {
-    // A field qualifies if it is single value, required and uses a widget
-    // with a definite set of options. For the sake of simplicity, this is
-    // currently restricted to fields defined by the options module.
-    $field = field_info_field($field_name);
+  foreach (commerce_marketplace_cart_get_splitter_field_instances($product->type) as $field_name => $instance) {
+    $referenced_entity_info = $line_item_wrapper->commerce_product->$field_name->entityInfo();
+    $referenced_entity_id = $referenced_entity_info['entity keys']['id'];
 
-    // If the instance is of a field type that is eligible to function as
-    // a product attribute field and if its attribute field settings
-    // specify that this functionality is enabled...
-    if (
-      commerce_marketplace_cart_field_splitter_eligible($field)
-      && commerce_marketplace_cart_field_instance_is_splitter($instance, 'order')
-    ) {
-
-      $referenced_entity_info = $line_item_wrapper->commerce_product->$field_name->entityInfo();
-      $referenced_entity_id = $referenced_entity_info['entity keys']['id'];
-
-      if ($line_item_wrapper->commerce_product->$field_name->value()) {
-        $conditions[$field_name] = $line_item_wrapper->commerce_product->$field_name->$referenced_entity_id->value();
-      }
-      else {
-        $conditions[$field_name] = NULL;
-      }
+    if ($line_item_wrapper->commerce_product->$field_name->value()) {
+      $conditions[$field_name] = $line_item_wrapper->commerce_product->$field_name->$referenced_entity_id->value();
+    }
+    else {
+      $conditions[$field_name] = NULL;
     }
   }
 
@@ -715,6 +701,61 @@ function commerce_marketplace_cart_field_splitter_eligible($field) {
   // is defined by a module implementing hook_options_list() to provide an array
   // of allowed values structured as human-readable option names keyed by value.
   return $field['cardinality'] == 1 && function_exists($field['module'] . '_options_list');
+}
+
+/**
+ * Returns order splitter field instances.
+ *
+ * @param string|null $bundle_name
+ *   A bundle of commerce_product entity type which to return splitter field
+ *   instances for. Instances for all bundles will be returned if not provided.
+ * @return array
+ *   An array of spritter field instances keyed by field names.
+ */
+function commerce_marketplace_cart_get_splitter_field_instances($bundle_name = NULL, $type = 'order') {
+  static $drupal_static_fast;
+
+  if (!isset($drupal_static_fast)) {
+    $drupal_static_fast['commerce_marketplace_cart_splitters'] = &drupal_static(__FUNCTION__);
+  }
+  $splitter_field_instances = &$drupal_static_fast['commerce_marketplace_cart_splitters'];
+
+  if (!isset($splitter_field_instances)) {
+    // Get all field instances for commerce_product entity type,
+    // and optionally for specific bundle name (if provided).
+    $instances = field_info_instances('commerce_product', $bundle_name);
+
+    // If bundle name was not provided, we'll get field instances for all
+    // commerce_product bundles, additionally keyed by bundle name.
+    // In such a case we want to flatten this array first.
+    if (empty($bundle_name)) {
+      $flattened_instances = array();
+      foreach ($instances as $bundle_name => $bundle_instances) {
+        $flattened_instances += $bundle_instances;
+      }
+      $instances = $flattened_instances;
+    }
+
+    // Loop through all the field instances on that product type.
+    foreach ($instances as $field_name => $instance) {
+      // A field qualifies if it is single value, required and uses a widget
+      // with a definite set of options. For the sake of simplicity, this is
+      // currently restricted to fields defined by the options module.
+      $field = field_info_field($field_name);
+
+      // If the instance is of a field type that is eligible to function as
+      // a product attribute field and if its attribute field settings
+      // specify that this functionality is enabled...
+      if (
+        commerce_marketplace_cart_field_splitter_eligible($field)
+        && commerce_marketplace_cart_field_instance_is_splitter($instance, $type)
+      ) {
+        $splitter_field_instances[$field_name] = $instance;
+      }
+    }
+  }
+
+  return $splitter_field_instances;
 }
 
 /**
