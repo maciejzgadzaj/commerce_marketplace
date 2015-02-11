@@ -154,8 +154,8 @@ function commerce_marketplace_cart_user_login(&$edit, $account) {
  * Loads the most recent shopping cart order for the specified user and
  * specified store.
  */
-function commerce_marketplace_cart_order_load($uid = 0, $store_id = NULL) {
-  $orders = commerce_marketplace_cart_order_load_multiple($uid, $store_id);
+function commerce_marketplace_cart_order_load($uid = 0, $conditions = array()) {
+  $orders = commerce_marketplace_cart_order_load_multiple($uid, $conditions);
   return reset($orders);
 }
 
@@ -166,9 +166,9 @@ function commerce_marketplace_cart_order_load($uid = 0, $store_id = NULL) {
  *
  * @see commerce_cart_order_load()
  */
-function commerce_marketplace_cart_order_load_multiple($uid = 0, $store_id = NULL) {
+function commerce_marketplace_cart_order_load_multiple($uid = 0, $conditions = array()) {
   // Retrieve the order ID for the specified user's current shopping cart.
-  $order_ids = commerce_marketplace_cart_order_ids($uid, $store_id);
+  $order_ids = commerce_marketplace_cart_order_ids($uid, $conditions);
 
   // If a valid cart order ID exists for the user, return it now.
   return !empty($order_ids) ? commerce_order_load_multiple($order_ids) : array();
@@ -198,13 +198,16 @@ function commerce_marketplace_cart_get_current_order_group_id() {
  *
  * @see commerce_cart_order_id()
  */
-function commerce_marketplace_cart_order_ids($uid = 0, $store_id = NULL) {
-  // Cart order IDs will be cached keyed by $uid.
+function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array()) {
+  $cache_key = md5(json_encode($conditions));
+
+  // Cart order IDs will be cached keyed by $uid and $cache_key generated
+  // from other $conditions.
   $cart_order_ids = &drupal_static(__FUNCTION__);
 
   // Cache the user's cart order ID if it hasn't been set already.
-  if (isset($cart_order_ids[$uid][$store_id])) {
-    return $cart_order_ids[$uid][$store_id];
+  if (isset($cart_order_ids[$uid][$cache_key])) {
+    return $cart_order_ids[$uid][$cache_key];
   }
 
   // First let other modules attempt to provide a valid order ID for the given
@@ -212,12 +215,12 @@ function commerce_marketplace_cart_order_ids($uid = 0, $store_id = NULL) {
   // it in each module implementing the hook and return the first valid order ID
   // returned (if any).
   foreach (module_implements('commerce_marketplace_cart_order_id') as $module) {
-    $order_ids = module_invoke($module, 'commerce_marketplace_cart_order_ids', $uid, $store_id);
+    $order_ids = module_invoke($module, 'commerce_marketplace_cart_order_ids', $uid, $conditions);
 
     // If a hook said the user should not have a cart, that overrides any other
     // potentially valid order ID. Return FALSE now.
     if ($order_ids === FALSE) {
-      return $cart_order_ids[$uid][$store_id] = array();
+      return $cart_order_ids[$uid][$cache_key] = array();
     }
 
     // If a hook returned a single order ID instead of an array, convert it.
@@ -227,34 +230,76 @@ function commerce_marketplace_cart_order_ids($uid = 0, $store_id = NULL) {
 
     // Otherwise only return a valid order IDs.
     if (!empty($order_ids) && is_array($order_ids)) {
-      return $cart_order_ids[$uid][$store_id] = $order_ids;
+      return $cart_order_ids[$uid][$cache_key] = $order_ids;
     }
   }
 
   // If no order ID exists in anonymous user's session.
   if (!$uid && !commerce_cart_order_session_exists()) {
-    return $cart_order_ids[$uid][$store_id] = array();
+    return $cart_order_ids[$uid][$cache_key] = array();
   }
 
   // Create an array of valid shopping cart order statuses.
   $status_ids = array_keys(commerce_order_statuses(array('cart' => TRUE)));
 
-  // Look for the user's shopping cart orders for specific $store_id.
+  // Start building query to look for user's shopping cart orders.
   $query = new EntityFieldQuery();
   $query->entityCondition('entity_type', 'commerce_order', '=')
     ->propertyCondition('uid', $uid)
     ->propertyCondition('status', $status_ids, 'IN')
     ->propertyOrderBy('order_id', 'DESC');
+
   // If store ID was provided as FALSE, it means we want orders with products
   // not assigned to any store. And because EFQ does not support IS NULL
   // condition, we have to tag the query here and add the condition in
   // commerce_marketplace_cart_query_null_order_id_alter().
-  if ($store_id === FALSE) {
-    $query->addTag('null_order_id');
-  }
-  // If store ID was provided look for order in specific store only.
-  elseif ($store_id !== NULL) {
-    $query->fieldCondition('commerce_store', 'target_id', $store_id, '=');
+
+  // Process any additional conditions.
+  if (!empty($conditions) && is_array($conditions)) {
+    $null_fields = array();
+    foreach ($conditions as $field_name => $field_value) {
+
+      // Get database column name from the field information.
+      $field = field_info_field($field_name);
+      $column = key($field['columns']);
+
+      // If a field should have any specific non-NULL value, we can use
+      // standard EFQ functionality.
+      if ($field_value !== NULL) {
+        $query->fieldCondition($field_name, $column, $field_value, '=');
+      }
+      // For NULL values though we need some cheating. EntityFieldQuery does not
+      // support IS NULL conditions natively (as it doesn't support LEFT JOINs),
+      // therefore we need to go around it, as we definitely need it here.
+      // Let's then prepare all the data we'll need for adding a LEFT JOIN
+      // and relevant IS NULL condition using custom hook_query_TAG_alter()
+      // implementation, and tag the query appropriately.
+      // Some code borrowed from field_sql_storage_field_storage_query().
+      else {
+        // Gather all the data that will be needed to add a LEFT JOIN
+        // and IS NULL condition later on.
+        $tablename_function = ($query->age == FIELD_LOAD_CURRENT) ? '_field_sql_storage_tablename' : '_field_sql_storage_revision_tablename';
+        $db_table_name = $tablename_function($field);
+        $db_table_alias = _field_sql_storage_tablealias($db_table_name, '_null', $query);
+        $db_field_name = _field_sql_storage_columnname($field_name, $column);
+
+        // Add it to the array which we'll attach to the query's metadata.
+        $null_fields[$db_table_name] = array(
+          'table' => $db_table_name,
+          'alias' => $db_table_alias,
+          'conditions' => "commerce_order.order_id = $db_table_alias.entity_id",
+          'field_name' => $db_field_name,
+        );
+      }
+    }
+    // If there were any fields on which we need IS NULL condition, let's add
+    // them to the query's metadata and tag the query appropriately. The LEFT
+    // JOINs and IS NULL conditions will be added to it in
+    // commerce_marketplace_cart_query_cart_order_ids_null_fields_alter().
+    if (!empty($null_fields)) {
+      $query->addTag('cart_order_ids_null_fields');
+      $query->addMetaData('cart_order_ids_null_fields', $null_fields);
+    }
   }
 
   // We want the same behavior as in standard DC - return only orders from the
@@ -271,19 +316,21 @@ function commerce_marketplace_cart_order_ids($uid = 0, $store_id = NULL) {
   }
   $entities = $query->execute();
 
-  return $cart_order_ids[$uid][$store_id] = !empty($entities['commerce_order']) ? array_keys($entities['commerce_order']) : FALSE;
+  return $cart_order_ids[$uid][$cache_key] = !empty($entities['commerce_order']) ? array_keys($entities['commerce_order']) : FALSE;
 }
 
 /**
- * Implements hook_query_TAG_alter().
+ * Implements hook_query_TAG_alter() for cart_order_ids_null_fields.
  *
  * Adds extra condition to store select query not supported by default by EFQ.
  *
  * @see commerce_marketplace_cart_order_ids()
  */
-function commerce_marketplace_cart_query_null_order_id_alter(QueryAlterableInterface $query) {
-  $query->leftJoin('field_data_commerce_store', 'fdcs', 'commerce_order.order_id = fdcs.entity_id');
-  $query->isNull('fdcs.commerce_store_target_id');
+function commerce_marketplace_cart_query_cart_order_ids_null_fields_alter(QueryAlterableInterface $query) {
+  foreach ($query->getMetaData('cart_order_ids_null_fields') as $null_field) {
+    $query->leftJoin($null_field['table'], $null_field['alias'], $null_field['conditions']);
+    $query->isNull($null_field['alias'] . '.' . $null_field['field_name']);
+  }
 }
 
 /**
@@ -393,7 +440,7 @@ function commerce_marketplace_cart_product_add($uid, $line_item, $combine = TRUE
   // If product is not assigned to any store, we need to check for orders not
   // assigned to any store either, which means passing FALSE as a second param
   // to commerce_marketplace_cart_order_load().
-  $order = commerce_marketplace_cart_order_load($uid, $store_id ? $store_id : FALSE);
+  $order = commerce_marketplace_cart_order_load($uid, $conditions);
 
   // If no order existed, create one now.
   if (empty($order)) {
@@ -411,7 +458,9 @@ function commerce_marketplace_cart_product_add($uid, $line_item, $combine = TRUE
   $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
 
   // Add store ID to order details.
-  $order_wrapper->commerce_store = $store_id;
+  foreach ($conditions as $field_name => $field_value) {
+    $order_wrapper->$field_name = $field_value;
+  }
 
   // Extract the product and quantity we're adding from the incoming line item.
   $product = $line_item_wrapper->commerce_product->value();
