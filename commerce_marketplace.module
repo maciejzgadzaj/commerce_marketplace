@@ -132,7 +132,7 @@ function commerce_marketplace_create_instance($field_name, $entity_type, $bundle
       'module' => 'entityreference',
       'cardinality' => 1,
       'translatable' => FALSE,
-      'locked' => TRUE,
+      'locked' => FALSE,
       'foreign keys' => array(
         'commerce_store' => array(
           'columns' => array(
