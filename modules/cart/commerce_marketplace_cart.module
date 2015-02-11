@@ -434,9 +434,37 @@ function commerce_marketplace_cart_product_add($uid, $line_item, $combine = TRUE
     return FALSE;
   }
 
-  // First attempt to load the customer's shopping cart order.
-  $store = $line_item_wrapper->commerce_product->commerce_store->value();
-  $store_id = !empty($store) ? $store->store_id : NULL;
+  $product = $line_item_wrapper->commerce_product->value();
+
+  $conditions = array();
+
+  // Loop through all the field instances on that product type.
+  foreach (field_info_instances('commerce_product', $product->type) as $field_name => $instance) {
+    // A field qualifies if it is single value, required and uses a widget
+    // with a definite set of options. For the sake of simplicity, this is
+    // currently restricted to fields defined by the options module.
+    $field = field_info_field($field_name);
+
+    // If the instance is of a field type that is eligible to function as
+    // a product attribute field and if its attribute field settings
+    // specify that this functionality is enabled...
+    if (
+      commerce_marketplace_cart_field_splitter_eligible($field)
+      && commerce_marketplace_cart_field_instance_is_splitter($instance, 'order')
+    ) {
+
+      $referenced_entity_info = $line_item_wrapper->commerce_product->$field_name->entityInfo();
+      $referenced_entity_id = $referenced_entity_info['entity keys']['id'];
+
+      if ($line_item_wrapper->commerce_product->$field_name->value()) {
+        $conditions[$field_name] = $line_item_wrapper->commerce_product->$field_name->$referenced_entity_id->value();
+      }
+      else {
+        $conditions[$field_name] = NULL;
+      }
+    }
+  }
+
   // If product is not assigned to any store, we need to check for orders not
   // assigned to any store either, which means passing FALSE as a second param
   // to commerce_marketplace_cart_order_load().
@@ -577,3 +605,230 @@ function commerce_marketplace_cart_line_item_views_form_submit($form, &$form_sta
 
   drupal_set_message(t('Your shopping cart has been updated.'));
 }
+
+/**
+ * Implements hook_form_FORM_ID_alter() for field_ui_field_edit_form().
+ *
+ * Alters the Field UI field edit form to add per-instance settings for fields
+ * on product types governing the use of product fields as attribute selection
+ * fields on the Add to Cart form.
+ *
+ * @see field_ui_field_edit_form()
+ * @see commerce_marketplace_cart_field_ui_field_edit_form_submit()
+ */
+function commerce_marketplace_cart_form_field_ui_field_edit_form_alter(&$form, &$form_state) {
+  // Extract the instance info from the form.
+  $instance = $form['#instance'];
+
+  // If the current field instance is not locked, is attached to a product type,
+  // and of a field type that defines an options list...
+  if (
+    empty($form['locked'])
+    && $instance['entity_type'] == 'commerce_product'
+    && commerce_marketplace_cart_field_splitter_eligible($form['#field'])
+  ) {
+    // Get the current instance's attribute settings for use as default values.
+    $commerce_marketplace_cart_settings = commerce_marketplace_cart_field_instance_splitter_settings($instance);
+
+    $form['instance']['commerce_marketplace_cart_settings'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Marketplace settings'),
+      '#weight' => 5,
+      '#collapsible' => FALSE,
+    );
+    $form['instance']['commerce_marketplace_cart_settings']['order_splitter_field'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable this field to function as an order splitter field.'),
+      '#description' => t('If two products with different field values will be added to the shopping cart, two separate orders will be created for them.'),
+      '#default_value' => $commerce_marketplace_cart_settings['order_splitter_field'],
+    );
+
+    $form['#submit'][] = 'commerce_marketplace_cart_field_ui_field_edit_form_submit';
+  }
+}
+
+/**
+ * @see commerce_marketplace_cart_form_field_ui_field_edit_form_alter()
+ */
+function commerce_marketplace_cart_field_ui_field_edit_form_submit($form, &$form_state) {
+  $old_instance = $form['#instance'];
+  $updated_instance = $form_state['values']['instance'];
+  // If updated field instance should be used as the order splitter field.
+  if (commerce_marketplace_cart_field_instance_is_splitter($updated_instance, 'order')) {
+    // We will base new field instance for commerce_order entities
+    // on the original field instance from commerce_product entity type.
+    $order_instance = $updated_instance;
+
+    $order_instance['entity_type'] = 'commerce_order';
+
+    // We want to create a new instance on each commerce_order bundle.
+    $commerce_order_info = entity_get_info('commerce_order');
+    foreach (array_keys($commerce_order_info['bundles']) as $bundle_name) {
+      $order_instance['bundle'] = $bundle_name;
+
+      // Check whether the field instance already exists on specific
+      // commerce_order bundle.
+      $existing_instance = field_info_instance($order_instance['entity_type'], $order_instance['field_name'], $order_instance['bundle']);
+
+      // If it doesn't exist, let's create it.
+      if (empty($existing_instance)) {
+        field_create_instance($order_instance);
+        drupal_set_message(t('Related %field_name field instance on %bundle bundle of %entity_type entity type has been automatically created.', array(
+          '%field_name' => $order_instance['field_name'],
+          '%entity_type' => $order_instance['entity_type'],
+          '%bundle' => $order_instance['bundle'],
+        )));
+      }
+    }
+  }
+  // If updated field instance should not be used as the order splitter field,
+  // let's check if the original instance was used as an splitter, and if so,
+  // let's display a message that it will not be used anymore and perhaps
+  // should be deleted.
+  elseif (commerce_marketplace_cart_field_instance_is_splitter($old_instance, 'order')) {
+    $order_entity_type = 'commerce_order';
+    $commerce_order_info = entity_get_info($order_entity_type);
+    foreach (array_keys($commerce_order_info['bundles']) as $bundle_name) {
+      if (field_info_instance($order_entity_type, $old_instance['field_name'], $bundle_name)) {
+        drupal_set_message(t('Related %field_name field instance on %entity_type entity type of %bundle type has not been automatically deleted - please do it manually if it is no longer needed. Warning: this might incur any existing data stored in that field to be permanently lost!', array(
+          '%field_name' => $old_instance['field_name'],
+          '%entity_type' => $order_entity_type,
+          '%bundle' => $bundle_name,
+        )), 'warning');
+      }
+    }
+  }
+}
+
+/**
+ * Determines whether or not the given field is eligible to function as a
+ * product attribute field on the Add to Cart form.
+ *
+ * @param $field
+ *   The info array of the field whose eligibility you want to determine.
+ *
+ * @return
+ *   TRUE or FALSE indicating the field's eligibility.
+ */
+function commerce_marketplace_cart_field_splitter_eligible($field) {
+  // Returns TRUE if the field is single value (i.e. has a cardinality of 1) and
+  // is defined by a module implementing hook_options_list() to provide an array
+  // of allowed values structured as human-readable option names keyed by value.
+  return $field['cardinality'] == 1 && function_exists($field['module'] . '_options_list');
+}
+
+/**
+ * Returns an array of attribute settings for a field instance.
+ *
+ * Fields attached to product types may be used as product attribute fields with
+ * selection widgets on Add to Cart forms. This function returns the default
+ * values for a given field instance.
+ *
+ * @param $instance
+ *   The info array of the field instance whose attribute settings should be
+ *   retrieved.
+ *
+ * @return
+ *   An array of attribute settings including:
+ *   - attribute_field: boolean indicating whether or not the instance should
+ *     be used as a product attribute field on the Add to Cart form; defaults
+ *     to FALSE
+ *   - attribute_widget: string indicating the type of form element to use on
+ *     the Add to Cart form for customers to select the attribute option;
+ *     defaults to 'select', may also be 'radios'
+ *   - attribute_widget_title: string used as the title of the attribute form
+ *     element on the Add to Cart form.
+ */
+function commerce_marketplace_cart_field_instance_splitter_settings($instance) {
+  if (
+    empty($instance['commerce_marketplace_cart_settings'])
+    || !is_array($instance['commerce_marketplace_cart_settings'])
+  ) {
+    $commerce_marketplace_cart_settings = array();
+  }
+  else {
+    $commerce_marketplace_cart_settings = $instance['commerce_marketplace_cart_settings'];
+  }
+
+  // Supply default values for the cart settings pertaining here to
+  // product attribute fields.
+  $commerce_marketplace_cart_settings += array(
+    'order_splitter_field' => FALSE,
+    'cart_splitter_field' => FALSE,
+  );
+
+  return $commerce_marketplace_cart_settings;
+}
+
+/**
+ * Determines whether or not a field instance is fucntioning as a product
+ * attribute field.
+ *
+ * @param $instance
+ *   The instance info array for the field instance.
+ *
+ * @return
+ *   Boolean indicating whether or not the field instance is an attribute field.
+ */
+function commerce_marketplace_cart_field_instance_is_splitter($instance, $type) {
+  $commerce_marketplace_cart_settings = commerce_marketplace_cart_field_instance_splitter_settings($instance);
+  return !empty($commerce_marketplace_cart_settings[$type . '_splitter_field']);
+}
+
+/**
+ *
+ */
+function commerce_marketplace_cart_configure_order_splitter_fields() {
+  foreach (field_info_instances('commerce_product') as $bundle_name => $fields) {
+    foreach ($fields as $field_name => $instance) {
+      if (commerce_marketplace_cart_field_instance_is_splitter($instance, 'order')) {
+        $instance['entity_type'] = 'commerce_order';
+        $instance['bundle'] = 'commerce_order';
+        $existing_instance = field_info_instance($instance['entity_type'], $instance['field_name'], $instance['bundle']);
+        if (empty($existing_instance)) {
+          field_create_instance($instance);
+          drupal_set_message(t('Created %field_name field instance on %entity_type entity type of %bundle type.', array(
+            '%field_name' => $instance['field_name'],
+            '%entity_type' => $instance['entity_type'],
+            '%bundle' => $instance['bundle'],
+          )));
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for field_ui_field_delete_form().
+ *
+ * Disallow to delete a field instance from commerce_order entity type
+ * if such field is used as order splitter on any commerce_product bundle.
+ *
+ * @see field_ui_field_delete_form()
+ */
+function commerce_marketplace_cart_form_field_ui_field_delete_form_alter(&$form, &$form_state) {
+  $instance_being_deleted = $form_state['build_info']['args'][0];
+
+  // Deleting an order splitter field instance from commerce_product entity type
+  // should be allowed, no further checks required in such a case.
+  $entity_type_to_check = 'commerce_product';
+  if ($instance_being_deleted['entity_type'] == $entity_type_to_check) {
+    return;
+  }
+
+  // Otherwise we need to check if a field to be deleted is not used
+  // as an order splitter on any commerce_product entity type.
+  $commerce_order_info = entity_get_info($entity_type_to_check);
+  foreach (array_keys($commerce_order_info['bundles']) as $bundle_name) {
+    $instance = field_info_instance($entity_type_to_check, $form['field_name']['#value'], $bundle_name);
+    if (commerce_marketplace_cart_field_instance_is_splitter($instance, 'order')) {
+      unset($form['actions']['submit']);
+      $form['description']['#markup'] = t('This field is configured as order splitter field on %bundle_name bundle of %entity_type entity type and thus cannot be deleted.', array(
+        '%entity_type' => $entity_type_to_check,
+        '%bundle_name' => $bundle_name,
+      ));
+    }
+  }
+}
+
+// commerce_store field on commerce_product entity type by default configured as splitter

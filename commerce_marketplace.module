@@ -190,6 +190,14 @@ function commerce_marketplace_create_instance($field_name, $entity_type, $bundle
       ),
     );
 
+    // On instances attached to commerce_product entity type
+    // additionally add order and cart splitting configuration.
+    if ($entity_type == 'commerce_product') {
+      $instance['commerce_marketplace_cart_settings'] = array(
+        'order_splitter_field' => 1,
+      );
+    }
+
     // Set the default display formatters for various view modes.
     foreach (array('default', 'full', 'teaser') as $view_mode) {
       $instance['display'][$view_mode] = array(
