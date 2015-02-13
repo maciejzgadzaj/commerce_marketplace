@@ -60,7 +60,7 @@ function commerce_marketplace_configure_referencing_entity_types() {
  */
 function commerce_marketplace_field_attach_create_bundle($entity_type, $bundle) {
   drupal_static_reset('commerce_product_types');
-  commerce_marketplace_configure_referencing_entity_types();
+  commerce_marketplace_configure_referencing_entity_type($entity_type, array($bundle));
 }
 
 /**
