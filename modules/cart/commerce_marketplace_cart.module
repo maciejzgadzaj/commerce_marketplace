@@ -547,9 +547,11 @@ function commerce_marketplace_cart_product_add($uid, $line_item, $combine = TRUE
   // Wrap the order for easy access to field data.
   $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
 
-  // Add store ID to order details.
+  // Add all splitter field values to the order.
   foreach ($conditions as $field_name => $field_value) {
-    $order_wrapper->$field_name = $field_value;
+    if (!empty($field_value)) {
+      $order_wrapper->$field_name = $field_value;
+    }
   }
 
   // Extract the product and quantity we're adding from the incoming line item.
