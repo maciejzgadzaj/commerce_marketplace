@@ -958,5 +958,3 @@ function commerce_marketplace_cart_form_field_ui_field_delete_form_alter(&$form,
     }
   }
 }
-
-// commerce_store field on commerce_product entity type by default configured as splitter
