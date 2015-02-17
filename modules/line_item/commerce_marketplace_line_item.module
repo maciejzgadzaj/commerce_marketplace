@@ -22,3 +22,42 @@ function commerce_marketplace_line_item_query_commerce_line_item_access_alter(Qu
   // Make sure a join with commerce_store table is added to the query.
   commerce_store_entity_access_query_alter($query, 'commerce_line_item', 'commerce_order');
 }
+
+/**
+ * Returns the total quantity of an array of line items.
+ *
+ * Overrides commerce_line_items_quantity(), making sure that the line item
+ * the order point to exist before trying to check their type and quantity.
+ *
+ * @param $line_items
+ *   The array of line items whose quantities you want to count; also accepts an
+ *   EntityListWrapper of a line item reference field.
+ * @param $types
+ *   An array of line item types to filter by before counting.
+ *
+ * @return
+ *   The total quantity of all the matching line items.
+ *
+ * @see commerce_line_items_quantity()
+ */
+function commerce_marketplace_line_items_quantity($line_items, $types = array()) {
+  // Sum up the quantity of all matching line items.
+  $quantity = 0;
+
+  foreach ($line_items as $line_item) {
+    // Sometimes order ends up referring a line item which doesn't exist
+    // anymore. Processing it we'll end up with EntityMetadataWrapperException,
+    // which we'd rather avoid.
+    if ($line_item->value()) {
+      if (!$line_item instanceof EntityMetadataWrapper) {
+        $line_item = entity_metadata_wrapper('commerce_line_item', $line_item);
+      }
+
+      if (empty($types) || in_array($line_item->type->value(), $types)) {
+        $quantity += $line_item->quantity->value();
+      }
+    }
+  }
+
+  return $quantity;
+}

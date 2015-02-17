@@ -241,7 +241,7 @@ function commerce_marketplace_order_quantity($orders) {
   $quantity = 0;
   foreach ($orders as $key => $order) {
     $wrapper = entity_metadata_wrapper('commerce_order', $order);
-    $quantity += commerce_line_items_quantity($wrapper->commerce_line_items, commerce_product_line_item_types());
+    $quantity += commerce_marketplace_line_items_quantity($wrapper->commerce_line_items, commerce_product_line_item_types());
   }
   return $quantity;
 }
