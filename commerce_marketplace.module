@@ -60,7 +60,15 @@ function commerce_marketplace_configure_referencing_entity_types() {
  */
 function commerce_marketplace_field_attach_create_bundle($entity_type, $bundle) {
   drupal_static_reset('commerce_product_types');
-  commerce_marketplace_configure_referencing_entity_type($entity_type, array($bundle));
+  // Add the field only on bundles of entity types which should reference
+  // the store entity type.
+  $referencing_entity_types = commerce_marketplace_referencing_entity_types();
+  if (
+    !empty($referencing_entity_types[$entity_type])
+    && in_array($bundle, $referencing_entity_types[$entity_type])
+  ) {
+    commerce_marketplace_configure_referencing_entity_type($entity_type, array($bundle));
+  }
 }
 
 /**
