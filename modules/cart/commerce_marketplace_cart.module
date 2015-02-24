@@ -242,9 +242,9 @@ function commerce_marketplace_cart_order_load($uid = 0, $conditions = array()) {
  *
  * @see commerce_cart_order_load()
  */
-function commerce_marketplace_cart_order_load_multiple($uid = 0, $conditions = array()) {
+function commerce_marketplace_cart_order_load_multiple($uid = 0, $conditions = array(), $reset = FALSE) {
   // Retrieve the order ID for the specified user's current shopping cart.
-  $order_ids = commerce_marketplace_cart_order_ids($uid, $conditions);
+  $order_ids = commerce_marketplace_cart_order_ids($uid, $conditions, $reset);
 
   // If a valid cart order ID exists for the user, return it now.
   return !empty($order_ids) ? commerce_order_load_multiple($order_ids) : array();
@@ -274,12 +274,14 @@ function commerce_marketplace_cart_get_current_order_group_id() {
  *
  * @see commerce_cart_order_id()
  */
-function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array()) {
+function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $reset = FALSE) {
   $cache_key = md5(json_encode($conditions));
 
-  // Cart order IDs will be cached keyed by $uid and $cache_key generated
-  // from other $conditions.
-  $cart_order_ids = &drupal_static(__FUNCTION__);
+  if  (!$reset) {
+    // Cart order IDs will be cached keyed by $uid and $cache_key generated
+    // from other $conditions.
+    $cart_order_ids = &drupal_static(__FUNCTION__);
+  }
 
   // Cache the user's cart order ID if it hasn't been set already.
   if (isset($cart_order_ids[$uid][$cache_key])) {
