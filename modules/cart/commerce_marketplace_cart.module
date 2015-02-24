@@ -247,7 +247,7 @@ function commerce_marketplace_cart_order_load_multiple($uid = 0, $conditions = a
   $order_ids = commerce_marketplace_cart_order_ids($uid, $conditions, $reset);
 
   // If a valid cart order ID exists for the user, return it now.
-  return !empty($order_ids) ? commerce_order_load_multiple($order_ids) : array();
+  return !empty($order_ids) ? commerce_order_load_multiple($order_ids, NULL, $reset) : array();
 }
 
 /**
