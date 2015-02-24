@@ -230,8 +230,8 @@ function commerce_marketplace_cart_user_login(&$edit, $account) {
  * Loads the most recent shopping cart order for the specified user and
  * specified store.
  */
-function commerce_marketplace_cart_order_load($uid = 0, $conditions = array()) {
-  $orders = commerce_marketplace_cart_order_load_multiple($uid, $conditions);
+function commerce_marketplace_cart_order_load($uid = 0, $conditions = array(), $reset = FALSE) {
+  $orders = commerce_marketplace_cart_order_load_multiple($uid, $conditions, $reset);
   return reset($orders);
 }
 
