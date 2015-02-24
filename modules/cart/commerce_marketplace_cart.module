@@ -281,11 +281,11 @@ function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $r
     // Cart order IDs will be cached keyed by $uid and $cache_key generated
     // from other $conditions.
     $cart_order_ids = &drupal_static(__FUNCTION__);
-  }
 
-  // Cache the user's cart order ID if it hasn't been set already.
-  if (isset($cart_order_ids[$uid][$cache_key])) {
-    return $cart_order_ids[$uid][$cache_key];
+    // Return the cached value if available.
+    if (isset($cart_order_ids[$uid][$cache_key])) {
+      return $cart_order_ids[$uid][$cache_key];
+    }
   }
 
   // First let other modules attempt to provide a valid order ID for the given
