@@ -708,6 +708,10 @@ function commerce_marketplace_cart_form_field_ui_field_edit_form_alter(&$form, &
       '#description' => t('If two products with different field values will be added to the shopping cart, two separate orders will be created for them.'),
       '#default_value' => $commerce_marketplace_cart_settings['order_splitter_field'],
     );
+    // Field commerce_store should *always* function as the splitter field.
+    if ($instance['field_name'] == 'commerce_store') {
+      $form['instance']['commerce_marketplace_cart_settings']['order_splitter_field']['#disabled'] = TRUE;
+    }
     $form['instance']['commerce_marketplace_cart_settings']['cart_splitter_field'] = array(
       '#type' => 'checkbox',
       '#title' => t('Enable this field to function as a shopping cart splitter field.'),
