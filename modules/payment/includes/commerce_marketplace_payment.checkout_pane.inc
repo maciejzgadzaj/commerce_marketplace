@@ -527,6 +527,20 @@ function commerce_marketplace_payment_redirect_pane_checkout_form(&$form, &$form
         && commerce_marketplace_payment_common_enabled_parallel_payment_methods($orders)
       )
     ) {
+      // The parallel payment should be executed only when the payment
+      // is being sent directly to merchants. To have that information available
+      // on later checkout stages (and in any callback processing), we need to
+      // save it in each order from the order group.
+      if (variable_get('commerce_store_payment_mode', COMMERCE_MARKETPLACE_PAYMENT_DEFAULT_MODE) == 'merchants') {
+        foreach ($orders as $group_order) {
+          $group_order->data['commerce_marketplace_payment_parallel'] = TRUE;
+          commerce_order_save($group_order);
+          if ($order->order_id == $group_order->order_id) {
+            $order = $group_order;
+          }
+        }
+      }
+
       // Let's use current order for the basis.
       $marketplace_order = $order;
       $marketplace_order_wrapper = entity_metadata_wrapper('commerce_order', $marketplace_order);
