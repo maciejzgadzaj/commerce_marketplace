@@ -388,6 +388,9 @@ function commerce_marketplace_payment_form_commerce_store_ui_store_form_alter(&$
   }
 
   array_unshift($form['actions']['submit']['#submit'], 'commerce_marketplace_payment_commerce_store_form_submit');
+  if (isset($form['actions']['save_continue']['#submit'])) {
+    array_unshift($form['actions']['save_continue']['#submit'], 'commerce_marketplace_payment_commerce_store_form_submit');
+  }
 }
 
 /**
