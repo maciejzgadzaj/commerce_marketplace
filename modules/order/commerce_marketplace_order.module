@@ -162,8 +162,15 @@ function commerce_marketplace_order_count($orders, $unpaid_only = FALSE) {
  *
  * Calculates the order total, updating the commerce_order_total field data in
  * the order object this function receives.
+ *
+ * @param object $order
+ *   The order object whose order total should be calculated.
+ * @param string|null $default_currency
+ *   The currency code to return the order total in.
+ *
+ * @see commerce_order_calculate_total()
  */
-function commerce_marketplace_order_calculate_total($orders) {
+function commerce_marketplace_order_calculate_total($orders, $default_currency = NULL) {
   // First determine the currency to use for the order total.
   $currency_code = commerce_default_currency();
   $currencies = array();
@@ -190,6 +197,11 @@ function commerce_marketplace_order_calculate_total($orders) {
   // order total.
   if (count($currencies) == 1) {
     $currency_code = key($currencies);
+  }
+  elseif (!empty($default_currency)) {
+    // Otherwise if a specific currency to calculate order total was requested
+    // in the function call, let's use it.
+    $currency_code = $default_currency;
   }
   elseif (in_array(commerce_default_currency(), array_keys($currencies))) {
     // Otherwise use the site default currency if it's in the order.
