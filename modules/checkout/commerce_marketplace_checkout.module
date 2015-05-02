@@ -73,6 +73,22 @@ function commerce_marketplace_checkout_router($order, $checkout_page = NULL) {
     drupal_goto('<front>');
   }
 
+  // If quantity of any of the orders is 0, remove such order and redirect
+  // to a valid checkout URL (if needed).
+  foreach ($orders as $order_id => $group_order) {
+    if (commerce_marketplace_order_quantity(array($group_order)) == 0) {
+      commerce_order_delete($order_id);
+      // If we have just deleted an order used in the URL, we need to redirect
+      // to a new valid URL.
+      if ($order_id == $order->order_id) {
+        $new_order_id = max(array_diff(array_keys($orders), array($order_id)));
+        if ($target_uri = commerce_marketplace_checkout_order_uri($orders[$new_order_id])) {
+          drupal_goto($target_uri);
+        }
+      }
+    }
+  }
+
   // Prior to displaying the checkout form, allow other modules to route the
   // checkout form.
   module_invoke_all('commerce_checkout_router', $order, $checkout_page);
