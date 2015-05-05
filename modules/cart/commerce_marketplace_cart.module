@@ -277,15 +277,16 @@ function commerce_marketplace_cart_get_current_order_group_id() {
 function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $reset = FALSE) {
   $cache_key = md5(json_encode($conditions));
 
-  if  (!$reset) {
-    // Cart order IDs will be cached keyed by $uid and $cache_key generated
-    // from other $conditions.
-    $cart_order_ids = &drupal_static(__FUNCTION__);
+  // If reset delete all values in the static variable.
+  if ($reset) {
+    $cart_order_ids = array();
+  }
 
-    // Return the cached value if available.
-    if (isset($cart_order_ids[$uid][$cache_key])) {
-      return $cart_order_ids[$uid][$cache_key];
-    }
+  // Cart order IDs will be cached keyed by $uid and $cache_key generated
+  // from other $conditions.
+  // Return the cached value if available.
+  if (isset($cart_order_ids[$uid][$cache_key])) {
+    return $cart_order_ids[$uid][$cache_key];
   }
 
   // First let other modules attempt to provide a valid order ID for the given
