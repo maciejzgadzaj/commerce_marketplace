@@ -277,6 +277,8 @@ function commerce_marketplace_cart_get_current_order_group_id() {
 function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $reset = FALSE) {
   $cache_key = md5(json_encode($conditions));
 
+  $cart_order_ids = &drupal_static(__FUNCTION__);
+
   // If reset delete all values in the static variable.
   if ($reset) {
     $cart_order_ids = array();
