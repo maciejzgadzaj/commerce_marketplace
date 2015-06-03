@@ -1,4 +1,4 @@
-name = Product
+name = Marketplace Product
 description = Adapts core product features for Commerce Marketplace.
 package = Commerce Marketplace
 dependencies[] = commerce_product

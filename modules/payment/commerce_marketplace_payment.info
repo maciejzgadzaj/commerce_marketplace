@@ -1,4 +1,4 @@
-name = Payment
+name = Marketplace Payment
 description = Adapts core payment features for Commerce Marketplace.
 core = 7.x
 package = Commerce Marketplace
