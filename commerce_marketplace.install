@@ -13,3 +13,35 @@ function commerce_marketplace_install() {
   module_load_include('module', 'commerce_marketplace');
   commerce_marketplace_configure_referencing_entity_types();
 }
+
+/**
+ * Unlock 'commerce_store' field and configure it as cart splitter on all
+ * bundles of 'commerce_product' entity type.
+ */
+function commerce_marketplace_update_7000() {
+  $field_name = 'commerce_store';
+
+  // Unlock 'commerce_store' field if it's locked.
+  $field = field_info_field($field_name);
+  if ($field['locked']) {
+    $field['locked'] = FALSE;
+    field_update_field($field);
+  }
+
+  // Configure 'commerce_store' field instances as cart splitters
+  // on all bundles of 'commerce_product' entity type.
+  foreach (commerce_marketplace_referencing_entity_types() as $entity_type => $bundles) {
+    if ($entity_type == 'commerce_product') {
+      foreach ($bundles as $bundle) {
+        $instance = field_info_instance($entity_type, $field_name, $bundle);
+        if (empty($instance['commerce_marketplace_cart_settings'])) {
+          $instance['commerce_marketplace_cart_settings'] = array(
+            'order_splitter_field' => 1,
+            'cart_splitter_field' => 0,
+          );
+          field_update_instance($instance);
+        }
+      }
+    }
+  }
+}
