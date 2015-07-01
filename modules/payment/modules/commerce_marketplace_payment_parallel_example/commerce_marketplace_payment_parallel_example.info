@@ -1,4 +1,4 @@
-name = Parallel Payment Method Example
+name = Marketplace Parallel Payment Method Example
 description = Provides an example parallel payment method for marketplace testing and development.
 package = Commerce Marketplace
 dependencies[] = commerce_marketplace_payment

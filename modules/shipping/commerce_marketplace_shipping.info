@@ -1,4 +1,4 @@
-name = Shipping
+name = Marketplace Shipping
 description = Adapts core shipping features for Commerce Marketplace.
 package = Commerce Marketplace
 dependencies[] = commerce_store

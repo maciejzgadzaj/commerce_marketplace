@@ -1,4 +1,4 @@
-name = Cart
+name = Marketplace Cart
 description = Adapts core shopping cart features for Commerce Marketplace.
 package = Commerce Marketplace
 dependencies[] = commerce_cart

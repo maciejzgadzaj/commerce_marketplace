@@ -1,4 +1,4 @@
-name = Store
+name = Marketplace Store
 description = Defines the Commerce Store entity type and associated features.
 core = 7.x
 package = Commerce Marketplace
