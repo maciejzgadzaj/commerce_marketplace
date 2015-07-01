@@ -1,4 +1,4 @@
-name = Line Item
+name = Marketplace Line Item
 description = Adapts core line item features for Commerce Marketplace.
 package = Commerce Marketplace
 dependencies[] = commerce_marketplace

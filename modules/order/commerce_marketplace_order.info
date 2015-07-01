@@ -1,4 +1,4 @@
-name = Order
+name = Marketplace Order
 description = Adapts core order features for Commerce Marketplace.
 package = Commerce Marketplace
 dependencies[] = commerce_marketplace

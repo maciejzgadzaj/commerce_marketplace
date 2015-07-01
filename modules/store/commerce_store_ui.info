@@ -1,4 +1,4 @@
-name = Store UI
+name = Marketplace Store UI
 description = Exposes a default UI for Commerce Store entities through edit forms and default views.
 core = 7.x
 package = Commerce Marketplace

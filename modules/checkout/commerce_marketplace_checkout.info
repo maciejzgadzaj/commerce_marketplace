@@ -1,4 +1,4 @@
-name = Checkout
+name = Marketplace Checkout
 description = Adapts core checkout features for Commerce Marketplace.
 package = Commerce Marketplace
 dependencies[] = commerce_marketplace
