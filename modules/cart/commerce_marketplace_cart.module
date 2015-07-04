@@ -287,7 +287,7 @@ function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $r
   // Cart order IDs will be cached keyed by $uid and $cache_key generated
   // from other $conditions.
   // Return the cached value if available.
-  if (isset($cart_order_ids[$uid][$cache_key])) {
+  if ($uid && isset($cart_order_ids[$uid][$cache_key])) {
     return $cart_order_ids[$uid][$cache_key];
   }
 
