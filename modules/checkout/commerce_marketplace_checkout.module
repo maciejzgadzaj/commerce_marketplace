@@ -69,7 +69,18 @@ function commerce_marketplace_checkout_router($order, $checkout_page = NULL) {
 
   // If there are no line items on any of the orders, redirect away.
   $orders = commerce_marketplace_order_group_load($order->order_group);
-  if (commerce_marketplace_order_quantity($orders) == 0) {
+  $order_quantity = commerce_marketplace_order_quantity($orders);
+
+  //If order_group is empty but order is set, attempt to repopulate it.
+  if ( $order_quantity == 0
+      && isset($order->order_id)
+  ) {
+    $order->order_group = commerce_marketplace_cart_get_current_order_group_id();
+    commerce_order_save($order);
+    $orders = commerce_marketplace_order_group_load($order->order_group);
+    $order_quantity = commerce_marketplace_order_quantity($orders);
+  }
+  if ($order_quantity == 0) {
     drupal_goto('<front>');
   }
 

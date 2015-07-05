@@ -258,13 +258,20 @@ function commerce_marketplace_cart_get_current_order_group_id() {
   $orders = commerce_marketplace_cart_order_load_multiple($user->uid);
   if (!empty($orders)) {
     $order = reset($orders);
-    return $order->order_group;
+    return !empty($order->order_group) ? $order->order_group : commerce_marketplace_cart_get_next_order_id();
   }
   else {
-    $last_group = db_select('commerce_order','co')->fields('co', array('order_group'))->orderby('order_group','DESC')->range(0,1)->execute()->fetchField();
-    // If no order exists yet, just return 1 as the very first order group ID.
-    return $last_group ? ++$last_group : 1;
+    return commerce_marketplace_cart_get_next_order_id();
   }
+}
+
+/**
+ * Returns the last order group set in the database plus one.
+ */
+function commerce_marketplace_cart_get_next_order_id(){
+  $last_group = db_select('commerce_order','co')->fields('co', array('order_group'))->orderby('order_group','DESC')->range(0,1)->execute()->fetchField();
+  // If no order exists yet, just return 1 as the very first order group ID.
+  return $last_group ? ++$last_group : 1;
 }
 
 /**
