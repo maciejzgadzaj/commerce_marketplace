@@ -543,22 +543,27 @@ function commerce_marketplace_payment_redirect_pane_checkout_form(&$form, &$form
 
       // Let's use current order for the basis.
       $marketplace_order = $order;
-      $marketplace_order_wrapper = entity_metadata_wrapper('commerce_order', $marketplace_order);
+      // Update main order total amount, line items and order_number only if
+      // currently used payment method does not support marketplace features
+      // (otherwise it should do relevant alterations itself).
+      if (empty($payment_method['commerce_marketplace'])) {
+        $marketplace_order_wrapper = entity_metadata_wrapper('commerce_order', $marketplace_order);
 
-      // Calculate marketplace order totals from all order totals.
-      $marketplace_order_total = commerce_marketplace_order_calculate_total($orders);
-      $marketplace_order_wrapper->commerce_order_total = $marketplace_order_total;
+        // Calculate marketplace order totals from all order totals.
+        $marketplace_order_total = commerce_marketplace_order_calculate_total($orders);
+        $marketplace_order_wrapper->commerce_order_total = $marketplace_order_total;
 
-      // Prepare new 'order number' to be passed to the payment gateway,
-      // also add all line items from all orders.
-      $marketplace_order_number = '';
-      $commerce_line_items = array();
-      foreach ($orders as $group_order) {
-        $marketplace_order_number[] = $group_order->order_number;
-        $commerce_line_items = array_merge_recursive($commerce_line_items, $group_order->commerce_line_items);
+        // Prepare new 'order number' to be passed to the payment gateway,
+        // also add all line items from all orders.
+        $marketplace_order_number = '';
+        $commerce_line_items = array();
+        foreach ($orders as $group_order) {
+          $marketplace_order_number[] = $group_order->order_number;
+          $commerce_line_items = array_merge_recursive($commerce_line_items, $group_order->commerce_line_items);
+        }
+        $marketplace_order->order_number = implode(', ', $marketplace_order_number);
+        $marketplace_order->commerce_line_items = $commerce_line_items;
       }
-      $marketplace_order->order_number = implode(', ', $marketplace_order_number);
-      $marketplace_order->commerce_line_items = $commerce_line_items;
 
       // Merge the new form into the current form array, preserving the help text
       // if it exists. We also add a wrapper so the form can be easily submitted.
