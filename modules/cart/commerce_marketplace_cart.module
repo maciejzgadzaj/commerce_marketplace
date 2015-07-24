@@ -294,7 +294,7 @@ function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $r
   // Cart order IDs will be cached keyed by $uid and $cache_key generated
   // from other $conditions.
   // Return the cached value if available.
-  if ($uid && isset($cart_order_ids[$uid][$cache_key])) {
+  if ($uid && isset($cart_order_ids[$uid][$cache_key]) && commerce_cart_order_session_exists()) {
     return $cart_order_ids[$uid][$cache_key];
   }
 
@@ -561,6 +561,10 @@ function commerce_marketplace_cart_product_add($uid, $line_item, $combine = TRUE
     $order_group = commerce_marketplace_cart_get_current_order_group_id();
     $order = commerce_cart_order_new($uid);
     $order->order_group = $order_group;
+  }
+
+  if (empty($order->order_group)){
+    $order_group = '';
   }
 
   // Set the incoming line item's order_id.
