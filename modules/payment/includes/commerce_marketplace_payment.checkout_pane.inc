@@ -481,7 +481,7 @@ function commerce_marketplace_payment_redirect_pane_checkout_form(&$form, &$form
         }
         else {
           // Otherwise display the failure message and send the customer back.
-          drupal_set_message(t('Payment failed at the payment server. Please review your information and try again.'), 'error');
+          drupal_set_message(t('Payment failed at the payment server. Please review your information and try again.'), 'error', FALSE);
 
           commerce_payment_redirect_pane_previous_page($group_order, t('Customer payment submission failed at the payment gateway.'));
         }
