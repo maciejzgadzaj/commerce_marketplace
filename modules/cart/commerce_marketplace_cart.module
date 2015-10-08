@@ -278,7 +278,7 @@ function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $r
   $cache_key = md5(json_encode($conditions));
 
   $cart_order_ids = &drupal_static(__FUNCTION__, array());
-  
+
   // If reset delete all values in the static variable.
   if ($reset) {
     $cart_order_ids = array();
@@ -390,7 +390,14 @@ function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $r
 
   // For anonymous users look for a shopping cart order ID in the session.
   if (!$uid) {
-    $query_params[':order_ids'] = commerce_cart_order_session_order_ids();
+    $session_order_ids = commerce_cart_order_session_order_ids();
+    // If no order IDs were found in the session, let's still add the query
+    // parameter with value of -1 (generally, it could be any value that always
+    // would be different from any possible order ID) - to make sure that the
+    // 'order_id' condition is still added to the query below, but could never
+    // be true  - otherwise the query might return IDs of orders belonging
+    // to other anonymous users.
+    $query_params[':order_ids'] = (!empty($session_order_ids)) ? $session_order_ids : array(-1);
   }
 
   // We want the same behavior as in standard DC - return only orders from the
@@ -398,7 +405,7 @@ function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $r
   $order_group_id = db_query(
     'SELECT MAX(order_group)
       FROM {commerce_order}
-      WHERE uid = :uid AND status IN (:status_ids)' . ((!empty($query_params[':order_ids'])) ? ' AND order_id IN (:order_ids)' : ''),
+      WHERE uid = :uid AND status IN (:status_ids)' . ((isset($query_params[':order_ids'])) ? ' AND order_id IN (:order_ids)' : ''),
       $query_params
   )->fetchField();
 
