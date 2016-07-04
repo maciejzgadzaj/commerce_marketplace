@@ -42,15 +42,15 @@ function commerce_store_ui_views_default_views() {
     'store_id' => 'store_id',
     'title' => 'title',
     'type' => 'type',
-    'status' => 'status',
     'name' => 'name',
+    'status' => 'status',
     'operations' => 'operations',
   );
   $handler->display->display_options['style_options']['default'] = 'store_id';
   $handler->display->display_options['style_options']['info'] = array(
     'store_id' => array(
       'sortable' => 1,
-      'default_sort_order' => 'asc',
+      'default_sort_order' => 'desc',
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
@@ -69,14 +69,14 @@ function commerce_store_ui_views_default_views() {
       'separator' => '',
       'empty_column' => 0,
     ),
-    'status' => array(
+    'name' => array(
       'sortable' => 1,
       'default_sort_order' => 'asc',
       'align' => '',
       'separator' => '',
       'empty_column' => 0,
     ),
-    'name' => array(
+    'status' => array(
       'sortable' => 1,
       'default_sort_order' => 'asc',
       'align' => '',
