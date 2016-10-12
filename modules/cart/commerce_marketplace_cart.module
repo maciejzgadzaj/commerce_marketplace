@@ -251,11 +251,20 @@ function commerce_marketplace_cart_order_load_multiple($uid = 0, $conditions = a
 }
 
 /**
- * Returns order group ID for the current user.
+ * Returns order group ID for the specified user or the current user.
+ *
+ * @param $uid
+ *   An optional user ID. If not provided, the current
+ *   user's ID will be used.
+ * @return
+ *   The group ID.
  */
-function commerce_marketplace_cart_get_current_order_group_id() {
-  global $user;
-  $orders = commerce_marketplace_cart_order_load_multiple($user->uid);
+function commerce_marketplace_cart_get_current_order_group_id($uid = NULL) {
+  if (!isset($uid)) {
+    $uid = $GLOBALS['user']->uid;
+  }
+
+  $orders = commerce_marketplace_cart_order_load_multiple($uid);
   if (!empty($orders)) {
     $order = reset($orders);
     return $order->order_group;
@@ -558,7 +567,7 @@ function commerce_marketplace_cart_product_add($uid, $line_item, $combine = TRUE
   if (empty($order)) {
     // We need to get order group ID before calling commerce_cart_order_new(),
     // as it will already save a new order with order group ID set to 0.
-    $order_group = commerce_marketplace_cart_get_current_order_group_id();
+    $order_group = commerce_marketplace_cart_get_current_order_group_id($uid);
     $order = commerce_cart_order_new($uid);
     $order->order_group = $order_group;
   }
