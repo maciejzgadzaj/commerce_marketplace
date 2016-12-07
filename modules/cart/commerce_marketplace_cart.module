@@ -418,6 +418,16 @@ function commerce_marketplace_cart_order_ids($uid = 0, $conditions = array(), $r
 }
 
 /**
+ * Resets the cached array of shopping cart orders.
+ *
+ * @see commerce_cart_order_ids_reset()
+ */
+function commerce_marketplace_cart_order_ids_reset() {
+  $cart_order_ids = &drupal_static('commerce_marketplace_cart_order_ids');
+  $cart_order_ids = NULL;
+}
+
+/**
  * Implements hook_query_TAG_alter() for cart_order_ids_null_fields.
  *
  * Adds extra condition to store select query not supported by default by EFQ.
